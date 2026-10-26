@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
-import { normaliseSubreddits } from "./subreddits.mjs";
+import { listName, normaliseSubreddits, subredditName } from "./subreddits.mjs";
 
 class RequestError extends Error {
   constructor(status, message) {
@@ -194,7 +194,7 @@ export function createApp({
         if (
           !Array.isArray(names) ||
           names.length > 1000 ||
-          names.some((name) => typeof name !== "string" || !/^[a-zA-Z0-9_-]{1,128}$/.test(name))
+          names.some((name) => typeof name !== "string" || !listName.test(name))
         )
           return json(400, { error: "Provide up to 1,000 valid list names." });
         return json(200, { names: normaliseLists(names) });
@@ -202,7 +202,7 @@ export function createApp({
       if (path === "/api/check" && request.method === "POST") {
         const name = (await readJson(request, 1024, "Check one subreddit at a time.", "checks"))
           ?.subreddit;
-        if (typeof name !== "string" || !/^[a-z0-9_]{2,21}$/.test(name))
+        if (typeof name !== "string" || !subredditName.test(name))
           return json(400, { error: "Provide a valid subreddit name." });
         const cached = statusCache.get(name);
         if (cached && cached.expires > Date.now()) return json(200, { status: cached.status });
@@ -267,11 +267,7 @@ export function createApp({
           const originalDestination =
             typeof input.destination === "string" ? input.destination.trim() : "";
           const destination = originalDestination.toLowerCase();
-          if (
-            !/^[a-zA-Z0-9_-]{1,128}$/.test(destination) ||
-            destination === "health" ||
-            destination === name
-          )
+          if (!listName.test(destination) || destination === "health" || destination === name)
             return json(400, {
               error: "Choose a different valid destination list name.",
             });
@@ -333,7 +329,8 @@ export function createApp({
       if (path.startsWith("/api/")) return json(404, { error: "Unknown list path." });
       if (request.method !== "GET" && request.method !== "HEAD")
         return json(405, { error: "Method not allowed." });
-      if (/^\/[a-zA-Z0-9_-]{1,128}$/.test(path) && !assets.has(path)) {
+      const listPage = listName.test(path.slice(1));
+      if (listPage && !assets.has(path)) {
         normaliseLists([path.slice(1)]);
         if (path !== path.toLowerCase() && path.toLowerCase() !== "/health") {
           response.writeHead(308, {
@@ -342,7 +339,7 @@ export function createApp({
           return response.end();
         }
       }
-      const asset = assets.get(path) || (/^\/[a-zA-Z0-9_-]{1,128}$/.test(path) ? page : null);
+      const asset = assets.get(path) || (listPage ? page : null);
       if (!asset) return json(404, { error: "Page not found." });
       response.writeHead(200, { "Content-Type": asset.type });
       const content = asset === page ? html.replace("%STYLE_NONCE%", nonce) : asset.content;
