@@ -1,6 +1,6 @@
 import { Alert, Button, Card, Group, Stack, Text, TextInput, Title } from "@mantine/core";
 import { useState, type FormEvent } from "react";
-import { listName } from "./api";
+import { listName } from "../../subreddits.mjs";
 import { normalisedChange } from "./input";
 
 export function Welcome() {

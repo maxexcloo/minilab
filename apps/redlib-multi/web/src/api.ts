@@ -1,7 +1,8 @@
+import { listName } from "../../subreddits.mjs";
+
 export type Status = "available" | "banned" | "private" | "restricted" | "unknown";
 export type List = { revision: number; subreddits: string[] };
 
-export const listName = /^[a-zA-Z0-9_-]{1,128}$/;
 export const redsimUrl = "https://anvaka.github.io/redsim/";
 
 /** A failed list request; a revision conflict carries the latest saved list. */

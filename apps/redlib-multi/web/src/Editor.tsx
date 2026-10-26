@@ -25,11 +25,10 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { multiredditUrl, normaliseSubreddits } from "../../subreddits.mjs";
+import { listName, multiredditUrl, normaliseSubreddits } from "../../subreddits.mjs";
 import {
   checkSubreddit,
   knownLists,
-  listName,
   ListError,
   listRequest,
   needsCheck,
