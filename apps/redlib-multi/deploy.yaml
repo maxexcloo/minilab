@@ -19,7 +19,7 @@ spec:
               PORT: "3000"
               REDLIB_CHECK_URL: ${REDLIB_CHECK_URL}
               REDLIB_URL: ${REDLIB_URL}
-            image:
+            image: &node
               repository: node
               tag: 26.12.1-alpine3.24
             probes:
@@ -39,12 +39,60 @@ spec:
               requests:
                 cpu: 10m
                 memory: 32Mi
-            securityContext:
+            securityContext: &securityContext
               allowPrivilegeEscalation: false
               readOnlyRootFilesystem: true
               capabilities:
                 drop:
                   - ALL
+      # SQLite's backup API copies a consistent snapshot while the app runs; restic
+      # keeps two weeks of them in the Minilab backup bucket.
+      backup:
+        type: cronjob
+        cronjob:
+          schedule: 54 3 * * *
+          concurrencyPolicy: Forbid
+          backoffLimit: 1
+          failedJobsHistory: 1
+          successfulJobsHistory: 1
+        initContainers:
+          snapshot:
+            command:
+              - node
+              - --input-type=module
+              - --eval
+              - >-
+                import { backup, DatabaseSync } from "node:sqlite";
+                const database = new DatabaseSync("/data/lists.sqlite");
+                await backup(database, "/backup/lists.sqlite");
+                database.close();
+            image: *node
+            securityContext: *securityContext
+        containers:
+          restic:
+            command:
+              - /bin/sh
+              - -ec
+              - |
+                restic cat config >/dev/null 2>&1 || restic init
+                restic backup --host redlib-multi /backup
+                restic forget --keep-within 14d --prune
+            env:
+              AWS_DEFAULT_REGION: us-east-1
+              HOME: /tmp
+            envFrom:
+              - secretRef:
+                  name: backup
+            image:
+              repository: docker.io/restic/restic
+              tag: 0.19.1
+            resources:
+              limits:
+                memory: 512Mi
+              requests:
+                cpu: 10m
+                memory: 64Mi
+            securityContext: *securityContext
     defaultPodOptions:
       automountServiceAccountToken: false
       securityContext:
@@ -56,37 +104,61 @@ spec:
         seccompProfile:
           type: RuntimeDefault
     persistence:
+      backup:
+        type: emptyDir
+        advancedMounts:
+          backup:
+            restic:
+              - path: /backup
+                readOnly: true
+            snapshot:
+              - path: /backup
       data:
         existingClaim: data
         type: persistentVolumeClaim
-        globalMounts:
-          - path: /data
+        advancedMounts:
+          backup:
+            snapshot:
+              - path: /data
+          redlib-multi:
+            app:
+              - path: /data
+      restic:
+        type: emptyDir
+        advancedMounts:
+          backup:
+            restic:
+              - path: /tmp
       script:
         name: redlib-multi-script
         type: configMap
-        globalMounts:
-          - path: /app/dist/app.js
-            readOnly: true
-            subPath: app.js
+        advancedMounts:
+          redlib-multi:
+            app:
+              - path: /app/dist/app.js
+                readOnly: true
+                subPath: app.js
       source:
         name: redlib-multi-source
         type: configMap
-        globalMounts:
-          - path: /app/dist/app.css
-            readOnly: true
-            subPath: app.css
-          - path: /app/dist/index.html
-            readOnly: true
-            subPath: index.html
-          - path: /app/dist/third-party-licences.txt
-            readOnly: true
-            subPath: third-party-licences.txt
-          - path: /app/server.mjs
-            readOnly: true
-            subPath: server.mjs
-          - path: /app/subreddits.mjs
-            readOnly: true
-            subPath: subreddits.mjs
+        advancedMounts:
+          redlib-multi:
+            app:
+              - path: /app/dist/app.css
+                readOnly: true
+                subPath: app.css
+              - path: /app/dist/index.html
+                readOnly: true
+                subPath: index.html
+              - path: /app/dist/third-party-licences.txt
+                readOnly: true
+                subPath: third-party-licences.txt
+              - path: /app/server.mjs
+                readOnly: true
+                subPath: server.mjs
+              - path: /app/subreddits.mjs
+                readOnly: true
+                subPath: subreddits.mjs
     route:
       private:
         annotations:
@@ -99,6 +171,42 @@ spec:
         ports:
           http:
             port: 3000
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: backup
+  annotations:
+    onepassword.excloo.dev/generate-fields: restic-password
+    onepassword.excloo.dev/item: &item "Minilab: Backups"
+spec:
+  refreshInterval: 1h
+  data:
+    - remoteRef:
+        key: *item
+        property: object-storage-access-key-id
+      secretKey: AWS_ACCESS_KEY_ID
+    - remoteRef:
+        key: *item
+        property: object-storage-secret-access-key
+      secretKey: AWS_SECRET_ACCESS_KEY
+    - remoteRef:
+        key: *item
+        property: object-storage-endpoint
+      secretKey: ENDPOINT
+    - remoteRef:
+        key: *item
+        property: restic-password
+      secretKey: RESTIC_PASSWORD
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: onepassword
+  target:
+    name: backup
+    template:
+      mergePolicy: Merge
+      data:
+        RESTIC_REPOSITORY: "s3:{{ .ENDPOINT }}/${MINILAB_BACKUP_BUCKET}/redlib-multi"
 ---
 apiVersion: v1
 kind: Namespace
@@ -165,8 +273,10 @@ spec:
       ports:
         - port: 3000
           protocol: TCP
+  # The backup job sends restic traffic to object storage.
   podSelector:
     matchLabels:
+      app.kubernetes.io/controller: redlib-multi
       app.kubernetes.io/name: app
   policyTypes:
     - Egress
