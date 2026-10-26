@@ -17,7 +17,7 @@ The interface is in `apps/redlib-multi/web` and its built bundle is in `dist/`.
 `server.mjs` handles the API and SQLite database, and `subreddits.mjs` has the
 shared parsing and recommendation logic.
 
-To run it locally, use Node.js 26.12 or newer:
+To run it locally, use Node.js 26 or newer:
 
 ```sh
 DATA_DIRECTORY=apps/redlib-multi/data HOST=127.0.0.1 PORT=3000 \
