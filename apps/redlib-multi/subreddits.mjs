@@ -17,7 +17,6 @@ export function normaliseSubreddits(input) {
 
 export function multiredditUrl(subreddits, redlibUrl) {
   if (!subreddits.length) return null;
-  if (!redlibUrl) throw new Error("Supply a Redlib URL.");
   return `${redlibUrl}/r/${subreddits.join("+")}`;
 }
 

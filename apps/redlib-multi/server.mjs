@@ -357,8 +357,6 @@ export function createApp({
 if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   process.umask(0o077);
   const port = Number(setting("PORT"));
-  if (!Number.isInteger(port) || port < 0 || port > 65535)
-    throw new Error("PORT must be a port number.");
   const host = setting("HOST");
   const server = createApp();
   server.listen(port, host);
