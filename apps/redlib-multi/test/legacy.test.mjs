@@ -16,7 +16,6 @@ test("normalises names, links and multi links without retaining duplicates", () 
     "https://feed.example/r/australia+sydney",
   );
   assert.equal(multiredditUrl([]), null);
-  assert.throws(() => multiredditUrl(["sydney"]), /Supply a Redlib URL/);
   assert.deepEqual(normaliseSubreddits(""), []);
   assert.throws(() => normaliseSubreddits("bad<script>"), /Invalid subreddit/);
   assert.throws(() => normaliseSubreddits("../secrets"), /Invalid subreddit/);

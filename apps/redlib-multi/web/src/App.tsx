@@ -1,6 +1,6 @@
 import { Alert } from "@mantine/core";
 import { Shell } from "@ui/Shell";
-import { listName } from "./api";
+import { listName } from "../../subreddits.mjs";
 import { Editor } from "./Editor";
 import { Welcome } from "./Welcome";
 
