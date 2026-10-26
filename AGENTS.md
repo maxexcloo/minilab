@@ -75,7 +75,10 @@
   cleanups. SQLite apps use one replica with `Recreate` and keep live data off
   NFS. A PVC is persistence, not a backup: before storing important data, have a
   recovery path, and copy a database only with SQLite's backup API or with the
-  writer stopped. Take a consistent backup before changing storage, data
+  writer stopped. Back up like `apps/redlib-multi`: a `backup` cronjob
+  controller snapshots the database and restic stores it under
+  `${MINILAB_BACKUP_BUCKET}/<namespace>`, with credentials from Kubelab's
+  `Minilab: Backups` item. Take a consistent backup before changing storage, data
   ownership or a destructive schema migration; an image rollback does not undo
   a migration.
 - Redlib Multi keeps its secret-link model and retains its existing SQLite format,
