@@ -4,7 +4,6 @@ namespace: mini-tool
 resources:
   - deploy.yaml
 configMapGenerator:
-  # The script is built separately because the whole app would exceed one ConfigMap's 1 MiB.
   - name: mini-tool-script
     files:
       - dist/app.js

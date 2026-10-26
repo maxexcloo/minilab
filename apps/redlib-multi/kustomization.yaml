@@ -4,7 +4,6 @@ namespace: redlib-multi
 resources:
   - deploy.yaml
 configMapGenerator:
-  # The script is built separately because the whole app would exceed one ConfigMap's 1 MiB.
   - name: redlib-multi-script
     files:
       - dist/app.js
