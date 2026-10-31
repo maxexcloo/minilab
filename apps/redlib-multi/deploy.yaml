@@ -21,7 +21,7 @@ spec:
               REDLIB_URL: ${REDLIB_URL}
             image: &node
               repository: node
-              tag: 26.12.1-alpine3.24
+              tag: 26.13.0-alpine3.24
             probes:
               liveness:
                 enabled: true
