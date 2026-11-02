@@ -80,9 +80,8 @@
   SHA-256 keys and revisions; never discard unidentified saved lists. Mixed-case
   names fold into lowercase keys: opening or listing `Foo` merges its legacy
   record into `foo` (subreddit union, newer revision) and removes the old key.
-- Traefik's JSON access logs record request paths, including Redlib Multi's editing
-  URLs. This is accepted while the app is private; revisit it before publishing
-  any secret-link app.
+- Kubelab's Traefik drops `RequestPath` from its access logs, which keeps Redlib
+  Multi's editing URLs out of them; secret-link apps rely on that.
 - Open a PR and merge into `main`; Flux deploys it directly. Ordinary mini apps
   have no Actions workflow or separate deploy branch. A GitHub AI connection may
   submit PRs without Kubernetes credentials, but must respect PR review and the
