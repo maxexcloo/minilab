@@ -101,10 +101,9 @@ test("opens an original database and merges its mixed-case identity into the low
       subreddits: ["australia", "sydney"],
       revision: 8,
     });
-    assert.equal((await fetch(`${base}/${id}`)).status, 200);
-    assert.deepEqual(await (await fetch(`${base}/api/config`)).json(), {
-      redlibUrl: "https://feed.example",
-    });
+    const page = await fetch(`${base}/${id}`);
+    assert.equal(page.status, 200);
+    assert.ok((await page.text()).includes('name="redlib-url" content="https://feed.example"'));
     assert.equal(
       multiredditUrl(first.subreddits, "https://feed.example"),
       "https://feed.example/r/australia+sydney",
