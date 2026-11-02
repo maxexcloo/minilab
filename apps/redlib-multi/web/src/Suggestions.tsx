@@ -1,20 +1,18 @@
 import { Anchor, Button, Card, Group, Stack, Text, Title } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { relatedSubreddits } from "../../subreddits.mjs";
-import { checkSubreddit, loadRedsim, redsimUrl, statuses, type Status } from "./api";
+import { checkSubreddit, loadRedsim, redlibUrl, redsimUrl, statuses, type Status } from "./api";
 
 type Redsim = Awaited<ReturnType<typeof loadRedsim>>;
 
 /** Related subreddits from RedSim, keeping only those Redlib confirms are available. */
 export function Suggestions({
   subreddits,
-  redlibUrl,
   busy,
   onAdd,
   onChecked,
 }: {
   subreddits: string[];
-  redlibUrl: string;
   busy: boolean;
   onAdd: (name: string, index: number) => void;
   onChecked: () => void;
