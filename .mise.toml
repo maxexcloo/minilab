@@ -5,6 +5,15 @@ _.path = ["node_modules/.bin"]
 kubectl = "latest"
 
 # Development
+[tasks.build]
+description = "Build Each App's Browser Bundle"
+run = """
+set -eu
+for web in apps/*/web templates/*/web; do
+  vite build --config vite.config.ts --logLevel warn "$web"
+done
+"""
+
 [tasks.check]
 depends = [
   "check:build",
@@ -17,15 +26,6 @@ depends = [
   "check:whitespace",
   "test",
 ]
-
-[tasks.build]
-description = "Build Each App's Browser Bundle"
-run = """
-set -eu
-for web in apps/*/web templates/*/web; do
-  vite build --config vite.config.ts --logLevel warn "$web"
-done
-"""
 
 [tasks."check:build"]
 description = "Check Committed Bundles Match Their Source"

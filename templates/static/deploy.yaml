@@ -102,12 +102,6 @@ kind: NetworkPolicy
 metadata:
   name: app
 spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/name: app
-  policyTypes:
-    - Egress
-    - Ingress
   egress: []
   ingress:
     - from:
@@ -120,3 +114,9 @@ spec:
       ports:
         - port: 8080
           protocol: TCP
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: app
+  policyTypes:
+    - Egress
+    - Ingress
