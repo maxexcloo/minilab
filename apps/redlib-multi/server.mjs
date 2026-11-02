@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
-import { listName, normaliseSubreddits, subredditName } from "./subreddits.mjs";
+import { listName, normaliseSubreddits, reservedList, subredditName } from "./subreddits.mjs";
 
 class RequestError extends Error {
   constructor(status, message) {
@@ -83,40 +83,47 @@ export function createApp({
   mkdirSync(dataDirectory, { mode: 0o700, recursive: true });
   // Retain the original filename, schema and hashed keys for existing lists.
   const database = new DatabaseSync(resolve(dataDirectory, "lists.sqlite"));
-  database.exec(
-    "PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL; CREATE TABLE IF NOT EXISTS lists (id TEXT PRIMARY KEY, subreddits TEXT NOT NULL, revision INTEGER NOT NULL)",
-  );
-  const select = database.prepare("SELECT subreddits, revision FROM lists WHERE id = ?");
   // Keep only revision metadata for deleted lists, so stale editors cannot revive old data.
   database.exec(
-    "CREATE TABLE IF NOT EXISTS deleted_lists (id TEXT PRIMARY KEY, revision INTEGER NOT NULL)",
+    "PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL; CREATE TABLE IF NOT EXISTS lists (id TEXT PRIMARY KEY, subreddits TEXT NOT NULL, revision INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS deleted_lists (id TEXT PRIMARY KEY, revision INTEGER NOT NULL)",
   );
+  const sql = {
+    deleteDeleted: database.prepare("DELETE FROM deleted_lists WHERE id = ?"),
+    deleteList: database.prepare("DELETE FROM lists WHERE id = ?"),
+    ping: database.prepare("SELECT 1"),
+    select: database.prepare("SELECT subreddits, revision FROM lists WHERE id = ?"),
+    selectDeleted: database.prepare("SELECT revision FROM deleted_lists WHERE id = ?"),
+    upsertDeleted: database.prepare(
+      "INSERT INTO deleted_lists (id, revision) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET revision = excluded.revision",
+    ),
+    upsertList: database.prepare(
+      "INSERT INTO lists (id, subreddits, revision) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET subreddits = excluded.subreddits, revision = excluded.revision",
+    ),
+  };
   function readList(key) {
-    const row = select.get(key);
+    const row = sql.select.get(key);
     return row
       ? { revision: row.revision, subreddits: JSON.parse(row.subreddits) }
-      : {
-          revision:
-            database.prepare("SELECT revision FROM deleted_lists WHERE id = ?").get(key)
-              ?.revision || 0,
-          subreddits: [],
-        };
+      : { revision: sql.selectDeleted.get(key)?.revision || 0, subreddits: [] };
   }
   function writeList(key, names, revision) {
     if (names.length) {
-      database
-        .prepare(
-          "INSERT INTO lists (id, subreddits, revision) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET subreddits = excluded.subreddits, revision = excluded.revision",
-        )
-        .run(key, JSON.stringify(names), revision + 1);
-      database.prepare("DELETE FROM deleted_lists WHERE id = ?").run(key);
+      sql.upsertList.run(key, JSON.stringify(names), revision + 1);
+      sql.deleteDeleted.run(key);
     } else {
-      database.prepare("DELETE FROM lists WHERE id = ?").run(key);
-      database
-        .prepare(
-          "INSERT INTO deleted_lists (id, revision) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET revision = excluded.revision",
-        )
-        .run(key, revision + 1);
+      sql.deleteList.run(key);
+      sql.upsertDeleted.run(key, revision + 1);
+    }
+  }
+  // Commits whatever the callback wrote, including on an early return; a throw rolls back.
+  function transaction(run) {
+    database.exec("BEGIN IMMEDIATE");
+    try {
+      const result = run();
+      database.exec("COMMIT");
+      return result;
+    } finally {
+      if (database.isTransaction) database.exec("ROLLBACK");
     }
   }
   const listKey = (name) => createHash("sha256").update(name).digest("hex");
@@ -124,9 +131,8 @@ export function createApp({
     const legacy = names.filter(
       (name) => name !== name.toLowerCase() && readList(listKey(name)).revision,
     );
-    if (legacy.length) {
-      database.exec("BEGIN IMMEDIATE");
-      try {
+    if (legacy.length)
+      transaction(() => {
         for (const name of legacy) {
           const oldKey = listKey(name);
           const key = listKey(name.toLowerCase());
@@ -137,15 +143,11 @@ export function createApp({
               [...current.subreddits, ...old.subreddits].join(" "),
             );
             writeList(key, merged, Math.max(current.revision, old.revision));
-            database.prepare("DELETE FROM lists WHERE id = ?").run(oldKey);
-            database.prepare("DELETE FROM deleted_lists WHERE id = ?").run(oldKey);
+            sql.deleteList.run(oldKey);
+            sql.deleteDeleted.run(oldKey);
           }
         }
-        database.exec("COMMIT");
-      } finally {
-        if (database.isTransaction) database.exec("ROLLBACK");
-      }
-    }
+      });
     return [...new Set(names.map((name) => name.toLowerCase()))]
       .filter((name) => readList(listKey(name)).subreddits.length)
       .sort();
@@ -165,7 +167,7 @@ export function createApp({
     ]),
   );
   const page = assets.get("/");
-  const html = page.content.toString();
+  const html = page.content.toString().replace("%REDLIB_URL%", origin.origin);
   const server = createServer(async (request, response) => {
     response.setHeader("Cache-Control", "no-store");
     // Mantine's style elements carry this per-request nonce, written into the page's meta tag.
@@ -184,11 +186,9 @@ export function createApp({
     try {
       const path = new URL(request.url, "http://localhost").pathname;
       if (path === "/health" && request.method === "GET") {
-        database.prepare("SELECT 1").get();
+        sql.ping.get();
         return json(200, { status: "ok" });
       }
-      if (path === "/api/config" && request.method === "GET")
-        return json(200, { redlibUrl: origin.origin });
       if (path === "/api/normalise-lists" && request.method === "POST") {
         const names = (await readJson(request, 150000, "Too many list names."))?.names;
         if (
@@ -228,28 +228,29 @@ export function createApp({
       const match = /^\/api\/lists\/([a-zA-Z0-9_-]{1,128})(\/transfer)?$/.exec(path);
       if (match) {
         const name = match[1].toLowerCase();
-        if (name === "health")
+        if (reservedList(name))
           return json(400, {
             error: "This name is reserved. Choose another list name.",
           });
         normaliseLists([match[1]]);
         const key = listKey(name);
-        const current = () => readList(key);
+        const stored = readList(key);
         const transfer = Boolean(match[2]);
-        if (!transfer && request.method === "GET") return json(200, current());
+        if (!transfer && request.method === "GET") return json(200, stored);
         if (request.method !== (transfer ? "POST" : "PUT"))
           return json(405, { error: "Method not allowed." });
         const input = await readJson(
           request,
-          Math.max(65536, current().subreddits.length * 24 + 1024),
+          Math.max(65536, stored.subreddits.length * 24 + 1024),
           "List is too large.",
         );
+        const limit = Math.max(1000, stored.subreddits.length);
         if (
           !input ||
           !Number.isSafeInteger(input.revision) ||
           input.revision < 0 ||
           !Array.isArray(input.subreddits) ||
-          input.subreddits.length > Math.max(1000, current().subreddits.length) ||
+          input.subreddits.length > limit ||
           input.subreddits.some((value) => typeof value !== "string")
         )
           return json(400, {
@@ -261,70 +262,68 @@ export function createApp({
         } catch (error) {
           return json(400, { error: error.message });
         }
-        if (names.length > Math.max(1000, current().subreddits.length))
-          return json(400, { error: "Use up to 1,000 subreddits." });
+        if (names.length > limit) return json(400, { error: "Use up to 1,000 subreddits." });
         if (transfer) {
           const originalDestination =
             typeof input.destination === "string" ? input.destination.trim() : "";
           const destination = originalDestination.toLowerCase();
-          if (!listName.test(destination) || destination === "health" || destination === name)
+          if (!listName.test(destination) || reservedList(destination) || destination === name)
             return json(400, {
               error: "Choose a different valid destination list name.",
             });
           if (!["copy", "move"].includes(input.action) || !names.length)
             return json(400, { error: "Select subreddits to copy or move." });
           normaliseLists([originalDestination]);
-          database.exec("BEGIN IMMEDIATE");
-          try {
-            const source = current();
-            if (source.revision !== input.revision)
-              return json(409, {
-                ...source,
-                error:
-                  "This list changed elsewhere. The latest list is loaded; select entries and try again.",
-              });
-            if (names.some((name) => !source.subreddits.includes(name)))
-              return json(400, {
-                error: "Select entries that belong to this list.",
-              });
-            const destinationKey = listKey(destination);
-            const destinationList = readList(destinationKey);
-            const existing = destinationList.subreddits;
-            const combined = [...new Set([...existing, ...names])].sort();
-            if (combined.length > 1000)
-              return json(400, {
-                error: "The destination would exceed 1,000 subreddits.",
-              });
-            if (combined.length !== existing.length)
-              writeList(destinationKey, combined, destinationList.revision);
-            if (input.action === "move") {
-              const selected = new Set(names);
-              writeList(
-                key,
-                source.subreddits.filter((name) => !selected.has(name)),
-                source.revision,
-              );
-            }
-            database.exec("COMMIT");
-            return json(200, current());
-          } finally {
-            if (database.isTransaction) database.exec("ROLLBACK");
-          }
+          return json(
+            ...transaction(() => {
+              const source = readList(key);
+              if (source.revision !== input.revision)
+                return [
+                  409,
+                  {
+                    ...source,
+                    error:
+                      "This list changed elsewhere. The latest list is loaded; select entries and try again.",
+                  },
+                ];
+              if (names.some((name) => !source.subreddits.includes(name)))
+                return [400, { error: "Select entries that belong to this list." }];
+              const destinationKey = listKey(destination);
+              const destinationList = readList(destinationKey);
+              const existing = destinationList.subreddits;
+              const combined = [...new Set([...existing, ...names])].sort();
+              if (combined.length > 1000)
+                return [400, { error: "The destination would exceed 1,000 subreddits." }];
+              if (combined.length !== existing.length)
+                writeList(destinationKey, combined, destinationList.revision);
+              if (input.action === "move") {
+                const selected = new Set(names);
+                writeList(
+                  key,
+                  source.subreddits.filter((name) => !selected.has(name)),
+                  source.revision,
+                );
+              }
+              return [200, readList(key)];
+            }),
+          );
         }
-        database.exec("BEGIN IMMEDIATE");
-        try {
-          if (current().revision !== input.revision)
-            return json(409, {
-              ...current(),
-              error:
-                "This list changed elsewhere. The latest list is loaded; try your change again.",
-            });
-          writeList(key, names, input.revision);
-          database.exec("COMMIT");
-          return json(200, current());
-        } finally {
-          if (database.isTransaction) database.exec("ROLLBACK");
-        }
+        return json(
+          ...transaction(() => {
+            const latest = readList(key);
+            if (latest.revision !== input.revision)
+              return [
+                409,
+                {
+                  ...latest,
+                  error:
+                    "This list changed elsewhere. The latest list is loaded; try your change again.",
+                },
+              ];
+            writeList(key, names, input.revision);
+            return [200, readList(key)];
+          }),
+        );
       }
       if (path.startsWith("/api/")) return json(404, { error: "Unknown list path." });
       if (request.method !== "GET" && request.method !== "HEAD")
@@ -332,7 +331,7 @@ export function createApp({
       const listPage = listName.test(path.slice(1));
       if (listPage && !assets.has(path)) {
         normaliseLists([path.slice(1)]);
-        if (path !== path.toLowerCase() && path.toLowerCase() !== "/health") {
+        if (path !== path.toLowerCase() && !reservedList(path.slice(1))) {
           response.writeHead(308, {
             Location: path.toLowerCase() + new URL(request.url, "http://localhost").search,
           });

@@ -4,6 +4,9 @@ export type Status = "available" | "banned" | "private" | "restricted" | "unknow
 export type List = { revision: number; subreddits: string[] };
 
 export const redsimUrl = "https://anvaka.github.io/redsim/";
+// The server writes its configured Redlib origin into the page.
+export const redlibUrl =
+  document.querySelector<HTMLMetaElement>('meta[name="redlib-url"]')!.content;
 
 /** A failed list request; a revision conflict carries the latest saved list. */
 export class ListError extends Error {

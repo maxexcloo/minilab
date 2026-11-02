@@ -1,6 +1,9 @@
 export const listName = /^[a-zA-Z0-9_-]{1,128}$/;
 export const subredditName = /^[a-z0-9_]{2,21}$/;
 
+// /health is the probe endpoint, so no list can use that name.
+export const reservedList = (name) => name.toLowerCase() === "health";
+
 export function normaliseSubreddits(input) {
   const tokens = String(input)
     .trim()
