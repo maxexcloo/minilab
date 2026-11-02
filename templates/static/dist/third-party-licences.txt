@@ -391,7 +391,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 
-@tabler/icons-react 3.49.0
+@tabler/icons-react 3.50.0
 
 MIT License
 
