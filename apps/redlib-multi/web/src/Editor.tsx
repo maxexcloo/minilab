@@ -25,7 +25,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { listName, multiredditUrl, normaliseSubreddits } from "../../subreddits.mjs";
+import { listName, multiredditUrl, normaliseSubreddits, reservedList } from "../../subreddits.mjs";
 import {
   checkSubreddit,
   knownLists,
@@ -33,6 +33,7 @@ import {
   listRequest,
   needsCheck,
   normaliseKnownLists,
+  redlibUrl,
   redsimUrl,
   rememberList,
   statuses,
@@ -54,10 +55,7 @@ const statusBadges: Record<Status, [label: string, colour: string]> = {
 
 async function fetchList(id: string) {
   await normaliseKnownLists();
-  const configuration = await fetch("/api/config");
-  if (!configuration.ok) throw new Error("Unable to load the feed configuration.");
-  const { redlibUrl }: { redlibUrl: string } = await configuration.json();
-  return { redlibUrl, list: await listRequest(id, "GET") };
+  return listRequest(id, "GET");
 }
 
 async function copy(text: string) {
@@ -70,7 +68,6 @@ async function copy(text: string) {
 }
 
 export function Editor({ id }: { id: string }) {
-  const [redlibUrl, setRedlibUrl] = useState<string>();
   const [list, setList] = useState<List>();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<Action>();
@@ -93,7 +90,7 @@ export function Editor({ id }: { id: string }) {
   const selected = subreddits.filter((name) => selection.has(name));
   const visible = subreddits.filter((name) => name.includes(filter.trim()));
   const visibleSelected = visible.filter((name) => selection.has(name)).length;
-  const feed = redlibUrl ? multiredditUrl(subreddits, redlibUrl) : null;
+  const feed = multiredditUrl(subreddits, redlibUrl);
   const destinations = [...new Set(knownLists.map((name) => name.toLowerCase()))]
     .sort()
     .filter((name) => name !== id);
@@ -102,10 +99,9 @@ export function Editor({ id }: { id: string }) {
     () =>
       fetchList(id).then(
         (loaded) => {
-          setRedlibUrl(loaded.redlibUrl);
-          setList(loaded.list);
-          rememberList(id, loaded.list.subreddits.length > 0);
-          setSaveState(loaded.list.revision ? "Saved." : "Add a subreddit to save this list.");
+          setList(loaded);
+          rememberList(id, loaded.subreddits.length > 0);
+          setSaveState(loaded.revision ? "Saved." : "Add a subreddit to save this list.");
           setLoading(false);
         },
         (error: Error) => {
@@ -172,7 +168,7 @@ export function Editor({ id }: { id: string }) {
     if (busy || !list || !selected.length) return;
     const original = destination.trim();
     const target = original.toLowerCase();
-    if (!listName.test(target) || target === "health" || target === id) {
+    if (!listName.test(target) || reservedList(target) || target === id) {
       setNotice({ text: "Choose a different valid destination list name.", colour: "red" });
       return;
     }
@@ -282,7 +278,7 @@ export function Editor({ id }: { id: string }) {
           <Text>Loading your list…</Text>
         </Group>
       )}
-      {list && redlibUrl && !loading && (
+      {list && !loading && (
         <>
           <Group justify="space-between" gap="sm">
             <Group gap="sm">
@@ -534,7 +530,6 @@ export function Editor({ id }: { id: string }) {
           <Stack ref={suggestions}>
             <Suggestions
               subreddits={subreddits}
-              redlibUrl={redlibUrl}
               busy={Boolean(busy)}
               onChecked={refresh}
               onAdd={(name, index) => {

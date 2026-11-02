@@ -2,22 +2,20 @@
 
 Small self-hosted tools. Each app lives in `apps/<name>` and is published at
 `https://<name>.mini.excloo.com`. Open a PR, review it and merge into `main`, and
-Flux deploys the change to SYD. There's no GitHub Actions workflow or deployment
-branch.
+Flux deploys the change to SYD.
 
 ## Apps
 
 [Redlib Multi](apps/redlib-multi) manages combined subreddit feeds. Each list has
 its own editing URL and persistent SQLite data. Lists saved under the old
 `reddit` hostname open at the same path on `redlib-multi`. Editing URLs are
-secret links, and they show up in Kubelab's Traefik access logs. I accept that
-because the app is private.
+secret links.
 
 The interface is in `apps/redlib-multi/web` and its built bundle is in `dist/`.
 `server.mjs` handles the API and SQLite database, and `subreddits.mjs` has the
 shared parsing and recommendation logic.
 
-To run it locally, use Node.js 26 or newer:
+To run it locally, use the Node.js version in `package.json`'s `engines`:
 
 ```sh
 DATA_DIRECTORY=apps/redlib-multi/data HOST=127.0.0.1 PORT=3000 \
@@ -63,10 +61,8 @@ integration.
 
 `components/app` lists each app in Homepage's **Minilab** group and links its
 safe landing page. Set the app's description, icon and `Minilab: <App>` display
-name on its route, and the listing refreshes automatically. An AI
-connection to the repository can submit PRs without cluster credentials; read
-`AGENTS.md` before editing. The source is public, but stored app data and
-credentials stay private.
+name on its route, and the listing refreshes automatically. The source is
+public, but stored app data and credentials stay private.
 
 ## Build The Interfaces
 

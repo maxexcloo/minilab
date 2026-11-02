@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["eslint", "typescript", "unicorn", "oxc", "react"],
-  "ignorePatterns": ["apps/*/dist/**", "templates/*/dist/**", "ui/vendor/**"],
+  "ignorePatterns": ["ui/vendor/**"],
   "overrides": [
     {
       "files": ["apps/*/web/src/**/*.tsx", "templates/*/web/src/**/*.tsx", "ui/**/*.tsx"],

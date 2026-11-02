@@ -14,8 +14,8 @@
   `nameOverride`, NetworkPolicy name and pod selector, and mounts the hashed
   names of the `persistence.script` and `persistence.source` ConfigMaps. It
   also supplies the `minilab` ServiceAccount and its RoleBinding to ClusterRole
-  `minilab-release`, and runs every HelmRelease as that account. Write `app` as the placeholder HelmRelease
-  and NetworkPolicy name.
+  `minilab-release`, and runs every HelmRelease as that account. Write `app` as
+  the placeholder HelmRelease and NetworkPolicy name.
 - `components/app` also owns the private route at
   `<namespace>.${MINILAB_DOMAIN}` (`mini.excloo.com`). Mini apps use only this
   hostname; cluster app aliases belong to Kubelab. Select apps in
@@ -23,8 +23,9 @@
 - Kubelab's `minilab` Flux Kustomization confines Minilab to namespaces it
   creates, with restricted Pod Security, and to the resource kinds and release
   permissions it grants. It places every HelmRelease on
-  `node.excloo.dev/network: external` nodes. A `local-path` PV is bound to the node that created it, so keep apps with
-  storage on that external node and back up before changing placement.
+  `node.excloo.dev/network: external` nodes. A `local-path` PV is bound to the
+  node that created it, so keep apps with storage on that external node and back
+  up before changing placement.
 - Choose a backend and datastore for the app's behaviour; existing Node.js/SQLite
   apps are examples, not a required stack. A backend such as PocketBase can
   replace custom auth, data APIs and file handling when that reduces the app's
@@ -42,15 +43,9 @@
   file over 900 KiB. Pages carry a `%STYLE_NONCE%` placeholder that the server
   replaces per request, with the same nonce in the CSP's `style-src`, because
   Mantine injects style elements.
-- Private apps use the private gateway and shared wildcard DNS. Public apps use
-  SYD's `public-direct` gateway, `websecuredirect` listener, public-access
-  namespace and route labels, and unproxied ExternalDNS records. Review live route
-  changes.
-- `components/app` enables Homepage discovery in the `Minilab` group and links
-  the safe landing URL derived from the route. Name each route
-  `gethomepage.dev/name: "Minilab: <App>"`; Kubelab's cluster groups show that
-  prefix. Never publish editing capabilities or list names.
-  Probe a capability-free `/health` endpoint.
+- Choose private or public access from the README's table and review live route
+  changes. Homepage links the route's safe landing URL: never publish editing
+  capabilities or list names there. Probe a capability-free `/health` endpoint.
 - Apps listen on `0.0.0.0`, run as the image's actual non-root UID/GID, disable
   service-account token automount and use a read-only root filesystem with a
   separate writable `/tmp` where supported. Publish a custom image's exact
@@ -60,16 +55,16 @@
 - Keep storage, secrets and network access isolated. Credentials stay server-side
   through ExternalSecrets that use the `onepassword` ClusterSecretStore and
   reference 1Password items titled `Minilab: <App>`, matching the route's
-  Homepage name. Flux postBuild
-  substitution applies to ConfigMaps, so disable it on code ConfigMaps to keep
-  JavaScript template literals such as `${name}` intact.
-- The `minilab` Kustomization gets `MINILAB_DOMAIN` from Kubelab's
-  `platform/settings` (`minilab_domain`). Kubelab's `apps/overlays/syd/minilab.yaml`
-  sets `REDLIB_URL` (Redlib's public origin, replaced from its route in the
-  overlay's `kustomization.yaml`) and `REDLIB_CHECK_URL` (its in-cluster service).
-  Add other shared variables to the overlay. Apps
-  have no setting defaults or fallbacks: a missing or empty variable, which is
-  how Flux leaves a missing substitution, must stop startup with its name. Write
+  Homepage name. Flux postBuild substitution applies to ConfigMaps, so disable
+  it on code ConfigMaps to keep JavaScript template literals such as `${name}`
+  intact.
+- Kubelab's `apps/overlays/syd/minilab.yaml` substitutes `MINILAB_DOMAIN`
+  (`mini.${public_domain}`), `REDLIB_URL` (Redlib's public origin, replaced from
+  its route in the overlay's `kustomization.yaml`) and `REDLIB_CHECK_URL` (its
+  in-cluster service); `apps/base/minilab` adds `MINILAB_BACKUP_BUCKET` from its
+  `minilab-backups` Secret. Add other shared variables to the overlay. Apps have
+  no setting defaults or fallbacks: a missing or empty variable, which is how
+  Flux leaves a missing substitution, must stop startup with its name. Write
   ports and paths directly; do not derive them with replacements.
 - Preserve deployed namespaces, release names, PVCs and old URLs during source
   cleanups. SQLite apps use one replica with `Recreate` and keep live data off
