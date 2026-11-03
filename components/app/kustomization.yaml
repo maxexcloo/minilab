@@ -1,11 +1,5 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
-# The Namespace name is the retained deployment name; the release, route and
-# NetworkPolicy names derive from it. Kubelab's minilab Flux Kustomization may
-# only grant helm-controller the minilab-release ClusterRole, so each release
-# runs as this namespace's minilab ServiceAccount. Routes are private at
-# <namespace>.${MINILAB_DOMAIN}; Kubelab's Flux Kustomization substitutes
-# MINILAB_DOMAIN.
 resources:
   - release.yaml
 configurations:

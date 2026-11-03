@@ -1,5 +1,4 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-# Kubelab's Flux Kustomization places every HelmRelease on external nodes.
 resources:
   - ../../apps/redlib-multi
