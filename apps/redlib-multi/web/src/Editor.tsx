@@ -217,15 +217,15 @@ export function Editor({ id }: { id: string }) {
     const controller = new AbortController();
     setChecking(controller);
     const names = subreddits.filter(needsCheck);
-    let completed = 0;
+    const completed = new Set<string>();
     const progress = (stopped = false) => {
       const banned = subreddits.filter((name) => statuses.get(name) === "banned").length;
       const state = stopped
         ? "Needs Attention · Stopped"
-        : completed === names.length
+        : completed.size === names.length
           ? "Completed · Checked"
           : "Running · Checking";
-      setCheckState(`${state} ${completed}/${names.length} · ${banned} banned`);
+      setCheckState(`${state} ${completed.size}/${names.length} · ${banned} banned`);
       refresh();
     };
     progress();
@@ -233,7 +233,7 @@ export function Editor({ id }: { id: string }) {
       names.map(async (name) => {
         await checkSubreddit(name, controller.signal);
         if (controller.signal.aborted) return;
-        completed++;
+        completed.add(name);
         progress();
       }),
     );
