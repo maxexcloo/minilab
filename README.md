@@ -7,9 +7,7 @@ Flux deploys the change to SYD.
 ## Apps
 
 [Redlib Multi](apps/redlib-multi) manages combined subreddit feeds. Each list has
-its own editing URL and persistent SQLite data. Lists saved under the old
-`reddit` hostname open at the same path on `redlib-multi`. Editing URLs are
-secret links.
+its own editing URL and persistent SQLite data. Editing URLs are secret links.
 
 The interface is in `apps/redlib-multi/web` and its built bundle is in `dist/`.
 `server.mjs` handles the API and SQLite database, and `subreddits.mjs` has the
