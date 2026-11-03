@@ -3,13 +3,12 @@ import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 import "./vendor/mantinehub/shadcn-styles.css";
 import { MantineProvider } from "@mantine/core";
-import { ModalsProvider } from "@mantine/modals";
 import { Notifications } from "@mantine/notifications";
 import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { cssVariablesResolver, theme } from "./theme";
 
-/** Render an app with the shared Mantine theme, modals and notifications. */
+/** Render an app with the shared Mantine theme and notifications. */
 export function mount(app: ReactNode) {
   // The Content-Security-Policy only admits Mantine's style elements with this per-request nonce.
   const nonce = document.querySelector<HTMLMetaElement>('meta[name="style-nonce"]')?.content ?? "";
@@ -23,10 +22,8 @@ export function mount(app: ReactNode) {
         defaultColorScheme="auto"
         getStyleNonce={() => nonce}
       >
-        <ModalsProvider>
-          <Notifications position="bottom-right" />
-          {app}
-        </ModalsProvider>
+        <Notifications position="bottom-right" />
+        {app}
       </MantineProvider>
     </StrictMode>,
   );
