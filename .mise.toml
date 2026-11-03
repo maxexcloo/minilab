@@ -7,12 +7,12 @@ kubectl = "latest"
 # Development
 [tasks.build]
 description = "Build Each App's Browser Bundle"
-run = """
+run = '''
 set -eu
 for web in apps/*/web templates/*/web; do
   vite build --config vite.config.ts --logLevel warn "$web"
 done
-"""
+'''
 
 [tasks.check]
 depends = [
@@ -29,7 +29,7 @@ depends = [
 
 [tasks."check:build"]
 description = "Check Committed Bundles Match Their Source"
-run = """
+run = '''
 set -eu
 built=$(mktemp -d)
 trap 'rm -r "$built"' EXIT
@@ -37,13 +37,13 @@ for web in apps/*/web templates/*/web; do
   vite build --config vite.config.ts --logLevel warn --outDir "$built/$web" "$web"
   diff -r "$built/$web" "${web%/web}/dist"
 done
-"""
+'''
 
 [tasks."check:manifests"]
-run = """
+run = '''
 kubectl kustomize clusters/syd > /dev/null
 kubectl kustomize templates/static > /dev/null
-"""
+'''
 
 [tasks."check:oxlint"]
 run = "oxlint --deny-warnings apps/*/web templates/*/web ui vite.config.ts"
