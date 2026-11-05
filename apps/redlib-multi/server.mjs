@@ -34,25 +34,6 @@ async function readJson(request, limit, tooLarge, action = "writes") {
   }
 }
 
-function parseOrigin(value, variable) {
-  let origin;
-  try {
-    origin = new URL(value);
-  } catch {
-    throw new Error(`${variable} must be an HTTP or HTTPS origin.`);
-  }
-  if (
-    !["http:", "https:"].includes(origin.protocol) ||
-    origin.username ||
-    origin.password ||
-    origin.pathname !== "/" ||
-    origin.search ||
-    origin.hash
-  )
-    throw new Error(`${variable} must be an HTTP or HTTPS origin.`);
-  return origin;
-}
-
 // Redlib shows the canonical spelling, such as r/AskReddit for a lowercase request.
 export function subredditStatus(html, name) {
   const error = /<div id="error">\s*<h1>([^<]*)<\/h1>/.exec(html)?.[1]?.trim().toLowerCase();
@@ -77,8 +58,8 @@ export function createApp({
   checkUrl = setting("REDLIB_CHECK_URL"),
   fetchStatus = fetch,
 } = {}) {
-  const origin = parseOrigin(redlibUrl, "REDLIB_URL");
-  const checkOrigin = parseOrigin(checkUrl, "REDLIB_CHECK_URL");
+  const origin = new URL(redlibUrl).origin;
+  const checkOrigin = new URL(checkUrl).origin;
   const statusCache = new Map();
   mkdirSync(dataDirectory, { mode: 0o700, recursive: true });
   // Retain the original filename, schema and hashed keys for existing lists.
@@ -167,7 +148,7 @@ export function createApp({
     ]),
   );
   const page = assets.get("/");
-  const html = page.content.toString().replace("%REDLIB_URL%", origin.origin);
+  const html = page.content.toString().replace("%REDLIB_URL%", origin);
   const server = createServer(async (request, response) => {
     response.setHeader("Cache-Control", "no-store");
     // Mantine's style elements carry this per-request nonce, written into the page's meta tag.
@@ -208,7 +189,7 @@ export function createApp({
         if (cached && cached.expires > Date.now()) return json(200, { status: cached.status });
         let status = "unknown";
         try {
-          const upstream = await fetchStatus(`${checkOrigin.origin}/r/${name}?limit=1`, {
+          const upstream = await fetchStatus(`${checkOrigin}/r/${name}?limit=1`, {
             headers: { "User-Agent": "Redlib-Multi" },
             redirect: "error",
             signal: AbortSignal.timeout(10000),
