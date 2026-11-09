@@ -1,17 +1,12 @@
 # Minilab
 
 Small self-hosted tools. Each app lives in `apps/<name>` and is published at
-`https://<name>.mini.excloo.com`. Open a PR, review it and merge into `main`, and
-Flux deploys the change to SYD.
+`https://<name>.mini.excloo.com`.
 
 ## Apps
 
 [Redlib Multi](apps/redlib-multi) manages combined subreddit feeds. Each list has
 its own editing URL and persistent SQLite data. Editing URLs are secret links.
-
-The interface is in `apps/redlib-multi/web` and its built bundle is in `dist/`.
-`server.mjs` handles the API and SQLite database, and `subreddits.mjs` has the
-shared parsing and recommendation logic.
 
 To run it locally, use the Node.js version in `package.json`'s `engines`:
 
@@ -25,14 +20,10 @@ Every setting is required, and a missing or empty value stops startup. Set
 `REDLIB_URL` to your Redlib origin, including its scheme and any port, and
 `REDLIB_CHECK_URL` to the origin the server uses for status checks. Then open
 `http://127.0.0.1:3000`. Local data stays in the app's ignored `data/` directory.
-Deployed data stays on its existing volume, so never delete that volume when
-replacing the app. Run the data tests with `node --test`.
+Run the data tests with `node --test`.
 
 With the [shared Mise configuration](https://github.com/maxexcloo/dotfiles#shared-tools--tasks)
-installed and `npm ci` run, `mise run check` runs the data tests, checks that
-each committed bundle matches its source, lints and type-checks the interfaces,
-renders the deployed apps and static template with the project `kubectl`, and
-checks repository formatting and configuration. It does not deploy anything.
+installed and `npm ci` run, use `mise run check` to check the project locally.
 
 ## Add An App
 
@@ -41,10 +32,9 @@ Namespace together with the kustomization's `namespace`, and the ConfigMap
 generators' names together with `persistence.script.name` and
 `persistence.source.name`. Edit the page in `web/` and the native deployment
 resources, run `mise run build`, then select the app in
-`clusters/syd/kustomization.yaml`. `components/app` derives the other Kubernetes
-names and the hostname from the Namespace. Only add a backend if the app needs one. Flux and the
-shared cluster integrations live in Kubelab, while app source and resources stay
-here.
+`clusters/syd/kustomization.yaml`. Only add a backend if the app needs one. Flux
+and the shared cluster integrations live in Kubelab, while app source and
+resources stay here.
 
 | Access            | Gateway                                     | DNS                                                  |
 | ----------------- | ------------------------------------------- | ---------------------------------------------------- |
@@ -57,27 +47,22 @@ Both gateways use the wildcard certificate. Who can reach an app and how it
 authenticates are separate choices. Keep credentials in the existing secret
 integration.
 
-`components/app` lists each app in Homepage's **Minilab** group and links its
-safe landing page. Set the app's description, icon and `Minilab: <App>` display
-name on its route, and the listing refreshes automatically. The source is
-public, but stored app data and credentials stay private.
+Set the app's Homepage description, icon and `Minilab: <App>` display name on
+its route. Link its safe landing page; never publish editing URLs or list
+names. The source is public, but stored app data and credentials stay private.
 
 ## Build The Interfaces
 
-Every app's page is React with [Mantine](https://mantine.dev) and the
-MantineHub shadcn theme, in light and dark mode. `ui/` holds the shared theme
-and page frame, and the root `package.json` holds the only dependencies. Vite
-builds each `web/` directory into `dist/`, with fixed file names, fonts inlined
-and the bundled packages' licences in `third-party-licences.txt`:
+Build the interfaces from each app's `web/` directory:
 
 ```sh
 npm ci
 mise run build
 ```
 
-Commit the rebuilt `dist/` with its source. Renovate updates the dependencies;
-rebuild when it does. Before merging, run `mise run check` and check the page in
-a browser for Content Security Policy errors.
+Commit the rebuilt `dist/` with its source, including after dependency updates.
+Before merging, run `mise run check` and check the page in a browser for Content
+Security Policy errors.
 
 ## Licence
 
