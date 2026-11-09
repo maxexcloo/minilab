@@ -9,15 +9,9 @@
   generators, task wrappers and alternate packaging. Substantial services, such
   as Actual Up, belong in their own repositories.
 - Name the Namespace after the retained deployment name, set the same name as
-  the kustomization's `namespace` and include `components/app`. It sets the
-  shared app-template chart, derives the HelmRelease name, release name,
-  `nameOverride`, NetworkPolicy name and pod selector, and mounts the hashed
-  names of the `persistence.script` and `persistence.source` ConfigMaps. It
-  also supplies the `minilab` ServiceAccount and its RoleBinding to ClusterRole
-  `minilab-release`, and runs every HelmRelease as that account. Write `app` as
-  the placeholder HelmRelease and NetworkPolicy name.
-- `components/app` also owns the private route at
-  `<namespace>.${MINILAB_DOMAIN}` (`mini.excloo.com`). Mini apps use only this
+  the kustomization's `namespace` and include `components/app`. Write `app` as
+  the placeholder HelmRelease and NetworkPolicy name; the component derives
+  names and the private hostname from the Namespace. Mini apps use only this
   hostname; cluster app aliases belong to Kubelab. Select apps in
   `clusters/syd/kustomization.yaml`; Kubelab reconciles only `clusters/syd`.
 - Kubelab's `minilab` Flux Kustomization confines Minilab to namespaces it
@@ -36,16 +30,12 @@
   colour names (green, red, amber, gray) rather than semantic aliases.
   `ui/vendor/mantinehub/` is an unmodified upstream copy, kept because upstream
   publishes no package; override it in `ui/theme.ts`.
-- Run `mise run build` after changing `web/`, `ui/` or dependencies and commit
-  `dist/`; `mise run check` fails when a bundle is stale. A ConfigMap holds at
-  most 1 MiB, so `app.js` goes in the `<app>-script` ConfigMap and the other
-  built files in `<app>-source`, each mounted by `subPath`. The build refuses a
-  file over 900 KiB. Pages carry a `%STYLE_NONCE%` placeholder that the server
-  replaces per request, with the same nonce in the CSP's `style-src`, because
-  Mantine injects style elements.
+- Keep `app.js` in the script ConfigMap and the other built files in the source
+  ConfigMap, each mounted by `subPath`. Pages carry a `%STYLE_NONCE%` placeholder
+  that the server replaces per request, with the same nonce in the CSP's
+  `style-src`, because Mantine injects style elements.
 - Choose private or public access from the README's table and review live route
-  changes. Homepage links the route's safe landing URL: never publish editing
-  capabilities or list names there. Probe a capability-free `/health` endpoint.
+  changes. Probe a capability-free `/health` endpoint.
 - Apps listen on `0.0.0.0`, run as the image's actual non-root UID/GID, disable
   service-account token automount and use a read-only root filesystem with a
   separate writable `/tmp` where supported. Publish a custom image's exact
@@ -58,24 +48,20 @@
   Homepage name. Flux postBuild substitution applies to ConfigMaps, so disable
   it on code ConfigMaps to keep JavaScript template literals such as `${name}`
   intact.
-- Kubelab's `apps/overlays/syd/minilab.yaml` substitutes `MINILAB_DOMAIN`
-  (`mini.${public_domain}`), `REDLIB_URL` (Redlib's public origin, replaced from
-  its route in the overlay's `kustomization.yaml`) and `REDLIB_CHECK_URL` (its
-  in-cluster service); `apps/base/minilab` adds `MINILAB_BACKUP_BUCKET` from its
-  `minilab-backups` Secret. Add other shared variables to the overlay. Apps have
-  no setting defaults or fallbacks: a missing or empty variable, which is how
-  Flux leaves a missing substitution, must stop startup with its name. Write
-  ports and paths directly; do not derive them with replacements.
+- Kubelab owns shared substitutions in `apps/overlays/syd/minilab.yaml` and
+  `apps/overlays/syd/kustomization.yaml`; backup credentials and the bucket come
+  from `apps/base/minilab`. Add shared variables there. Apps have no setting
+  defaults or fallbacks: a missing or empty variable, which is how Flux leaves
+  a missing substitution, must stop startup with its name. Write ports and
+  paths directly; do not derive them with replacements.
 - Preserve deployed namespaces, release names, PVCs and old URLs during source
   cleanups. SQLite apps use one replica with `Recreate` and keep live data off
   NFS. A PVC is persistence, not a backup: before storing important data, have a
   recovery path, and copy a database only with SQLite's backup API or with the
-  writer stopped. Back up like `apps/redlib-multi`: a `backup` cronjob
-  controller snapshots the database and restic stores it under
-  `${MINILAB_BACKUP_BUCKET}/<namespace>`, with credentials from Kubelab's
-  `Minilab: Backups` item. Take a consistent backup before changing storage, data
-  ownership or a destructive schema migration; an image rollback does not undo
-  a migration.
+  writer stopped. Use `apps/redlib-multi` as the backup example, with credentials
+  from Kubelab's `Minilab: Backups` item. Take a consistent backup before changing
+  storage, data ownership or a destructive schema migration; an image rollback
+  does not undo a migration.
 - Redlib Multi keeps its secret-link model and retains its existing SQLite format,
   SHA-256 keys and revisions; never discard unidentified saved lists. Mixed-case
   names fold into lowercase keys: opening or listing `Foo` merges its legacy
@@ -83,8 +69,6 @@
 - Kubelab's Traefik drops `RequestPath` from its access logs, which keeps Redlib
   Multi's editing URLs out of them; secret-link apps rely on that.
 - Open a PR and merge into `main`; Flux deploys it directly. Ordinary mini apps
-  have no Actions workflow or separate deploy branch. A GitHub AI connection may
-  submit PRs without Kubernetes credentials, but must respect PR review and the
-  existing credential integration. Source changes must update hashed ConfigMap
-  references or an immutable image. Run data tests directly with `node --test` and
-  render affected Kustomizations with `kubectl kustomize`.
+  have no Actions workflow or separate deploy branch. Source changes must update
+  hashed ConfigMap references or an immutable image. Run data tests directly with
+  `node --test` and render affected Kustomizations with `kubectl kustomize`.
