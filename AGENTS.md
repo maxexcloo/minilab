@@ -63,12 +63,9 @@
   storage, data ownership or a destructive schema migration; an image rollback
   does not undo a migration.
 - Redlib Multi keeps its secret-link model and retains its existing SQLite format,
-  SHA-256 keys and revisions; never discard unidentified saved lists. Mixed-case
-  names fold into lowercase keys: opening or listing `Foo` merges its legacy
-  record into `foo` (subreddit union, newer revision) and removes the old key.
+  SHA-256 keys and revisions; never discard unidentified saved lists.
 - Kubelab's Traefik drops `RequestPath` from its access logs, which keeps Redlib
   Multi's editing URLs out of them; secret-link apps rely on that.
-- Open a PR and merge into `main`; Flux deploys it directly. Ordinary mini apps
-  have no Actions workflow or separate deploy branch. Source changes must update
+- Flux deploys `main` directly. Source changes must update
   hashed ConfigMap references or an immutable image. Run data tests directly with
   `node --test` and render affected Kustomizations with `kubectl kustomize`.

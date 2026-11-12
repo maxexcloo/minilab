@@ -11,7 +11,6 @@ import {
 import { IconMoon, IconSun } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 
-/** The page frame every app shares: a header with the app's name and a colour-scheme toggle. */
 export function Shell({ title, children }: { title: string; children: ReactNode }) {
   const { setColorScheme } = useMantineColorScheme();
   const dark = useComputedColorScheme("light") === "dark";

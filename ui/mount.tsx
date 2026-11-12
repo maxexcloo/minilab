@@ -8,7 +8,6 @@ import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { cssVariablesResolver, theme } from "./theme";
 
-/** Render an app with the shared Mantine theme and notifications. */
 export function mount(app: ReactNode) {
   // The Content-Security-Policy only admits Mantine's style elements with this per-request nonce.
   const nonce = document.querySelector<HTMLMetaElement>('meta[name="style-nonce"]')?.content ?? "";
