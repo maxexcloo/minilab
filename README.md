@@ -5,10 +5,7 @@ Small self-hosted tools. Each app lives in `apps/<name>` and is published at
 
 ## Apps
 
-[Redlib Multi](apps/redlib-multi) manages combined subreddit feeds. Each list has
-its own editing URL and persistent SQLite data. Editing URLs are secret links.
-
-To run it locally, use the Node.js version in `package.json`'s `engines`:
+To run [Redlib Multi](apps/redlib-multi) locally, use the Node.js version in `package.json`'s `engines`:
 
 ```sh
 DATA_DIRECTORY=apps/redlib-multi/data HOST=127.0.0.1 PORT=3000 \
@@ -16,11 +13,9 @@ DATA_DIRECTORY=apps/redlib-multi/data HOST=127.0.0.1 PORT=3000 \
   node apps/redlib-multi/server.mjs
 ```
 
-Every setting is required, and a missing or empty value stops startup. Set
-`REDLIB_URL` to your Redlib origin, including its scheme and any port, and
-`REDLIB_CHECK_URL` to the origin the server uses for status checks. Then open
-`http://127.0.0.1:3000`. Local data stays in the app's ignored `data/` directory.
-Run the data tests with `node --test`.
+Set `REDLIB_URL` to your Redlib origin and `REDLIB_CHECK_URL` to the origin the
+server uses for status checks, then open `http://127.0.0.1:3000`. Run the data
+tests with `node --test`.
 
 With the [shared Mise configuration](https://github.com/maxexcloo/dotfiles#shared-tools--tasks)
 installed and `npm ci` run, use `mise run check` to check the project locally.
@@ -32,9 +27,7 @@ Namespace together with the kustomization's `namespace`, and the ConfigMap
 generators' names together with `persistence.script.name` and
 `persistence.source.name`. Edit the page in `web/` and the native deployment
 resources, run `mise run build`, then select the app in
-`clusters/syd/kustomization.yaml`. Only add a backend if the app needs one. Flux
-and the shared cluster integrations live in Kubelab, while app source and
-resources stay here.
+`clusters/syd/kustomization.yaml`. Only add a backend if the app needs one.
 
 | Access            | Gateway                                     | DNS                                                  |
 | ----------------- | ------------------------------------------- | ---------------------------------------------------- |
@@ -43,13 +36,10 @@ resources stay here.
 
 Public routes need `gateway.excloo.dev/public-access: "true"` on their namespace
 and route, plus `external-dns.alpha.kubernetes.io/cloudflare-proxied: "false"`.
-Both gateways use the wildcard certificate. Who can reach an app and how it
-authenticates are separate choices. Keep credentials in the existing secret
-integration.
 
 Set the app's Homepage description, icon and `Minilab: <App>` display name on
 its route. Link its safe landing page; never publish editing URLs or list
-names. The source is public, but stored app data and credentials stay private.
+names.
 
 ## Build The Interfaces
 
