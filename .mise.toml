@@ -16,6 +16,7 @@ done
 
 [tasks.check]
 depends = [
+  "check:actions",
   "check:build",
   "check:manifests",
   "check:mise",

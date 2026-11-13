@@ -5,17 +5,11 @@ Small self-hosted tools. Each app lives in `apps/<name>` and is published at
 
 ## Apps
 
-To run [Redlib Multi](apps/redlib-multi) locally, use the Node.js version in `package.json`'s `engines`:
-
-```sh
-DATA_DIRECTORY=apps/redlib-multi/data HOST=127.0.0.1 PORT=3000 \
-  REDLIB_CHECK_URL=https://your-redlib.example REDLIB_URL=https://your-redlib.example \
-  node apps/redlib-multi/server.mjs
-```
-
-Set `REDLIB_URL` to your Redlib origin and `REDLIB_CHECK_URL` to the origin the
-server uses for status checks, then open `http://127.0.0.1:3000`. Run the data
-tests with `node --test`.
+To run [Redlib Multi](apps/redlib-multi) locally with the Node.js version in
+`package.json`'s `engines`, set `DATA_DIRECTORY` (such as
+`apps/redlib-multi/data`), `HOST`, `PORT`, `REDLIB_URL` to your Redlib origin
+and `REDLIB_CHECK_URL` to the origin the server uses for status checks, then run
+`node apps/redlib-multi/server.mjs` and open `http://<HOST>:<PORT>`.
 
 With the [shared Mise configuration](https://github.com/maxexcloo/dotfiles#shared-tools--tasks)
 installed and `npm ci` run, use `mise run check` to check the project locally.
@@ -43,7 +37,7 @@ names.
 
 ## Build The Interfaces
 
-Build the interfaces from each app's `web/` directory:
+Build every app's `web/` source into its `dist/` from the repository root:
 
 ```sh
 npm ci
