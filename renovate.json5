@@ -1,7 +1,4 @@
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: ["github>maxexcloo/dotfiles//renovate/default.json5"],
-  // npm packages are bundled into the committed dist/, which must be rebuilt by hand.
-  lockFileMaintenance: { automerge: false },
-  packageRules: [{ automerge: false, groupName: "npm packages", matchManagers: ["npm"] }],
 }

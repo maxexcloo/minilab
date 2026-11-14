@@ -1,7 +1,7 @@
 # Minilab
 
-- Keep each app in `apps/<name>`: its browser source in `web/` with the built
-  bundle committed in `dist/`, a small `server.mjs` only when needed, and native
+- Keep each app in `apps/<name>`: its browser source in `web/` built into an
+  untracked `dist/`, a small `server.mjs` only when needed, and native
   Kubernetes resources beside it: `deploy.yaml` holds the resources and
   `kustomization.yaml` mounts the assets. Apps share the root npm package,
   `vite.config.ts` and `ui/`; add no per-app package, Docker build or Mise task.
@@ -66,6 +66,8 @@
   SHA-256 keys and revisions; never discard unidentified saved lists.
 - Kubelab's Traefik drops `RequestPath` from its access logs, which keeps Redlib
   Multi's editing URLs out of them; secret-link apps rely on that.
-- Flux deploys `main` directly. Source changes must update
-  hashed ConfigMap references or an immutable image. Run data tests directly with
-  `node --test` and render affected Kustomizations with `kubectl kustomize`.
+- CI builds `main` and publishes the repository with its bundles as the
+  `ghcr.io/maxexcloo/minilab:main` OCI artifact, which Flux deploys. Source
+  changes must update hashed ConfigMap references or an immutable image. Run
+  data tests with `mise run test`, which builds the bundles they serve, and
+  render affected Kustomizations with `kubectl kustomize`.
