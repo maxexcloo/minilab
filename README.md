@@ -44,9 +44,9 @@ npm ci
 mise run build
 ```
 
-Commit the rebuilt `dist/` with its source, including after dependency updates.
-Before merging, run `mise run check` and check the page in a browser for Content
-Security Policy errors.
+Git ignores `dist/`; CI builds `main` and publishes it with the bundles as the
+OCI artifact Flux deploys. Before merging, run `mise run check` and check the
+page in a browser for Content Security Policy errors.
 
 ## Licence
 

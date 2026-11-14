@@ -1,3 +1,1 @@
-apps/*/dist/** linguist-generated -whitespace
-templates/*/dist/** linguist-generated -whitespace
 ui/vendor/** linguist-vendored -whitespace

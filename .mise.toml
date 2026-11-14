@@ -2,6 +2,7 @@
 _.path = ["node_modules/.bin"]
 
 [tools]
+flux2 = "latest"
 kubectl = "latest"
 
 # Development
@@ -17,7 +18,6 @@ done
 [tasks.check]
 depends = [
   "check:actions",
-  "check:build",
   "check:manifests",
   "check:mise",
   "check:oxfmt",
@@ -28,19 +28,8 @@ depends = [
   "test",
 ]
 
-[tasks."check:build"]
-description = "Check Committed Bundles Match Their Source"
-run = '''
-set -eu
-built=$(mktemp -d)
-trap 'rm -r "$built"' EXIT
-for web in apps/*/web templates/*/web; do
-  vite build --config vite.config.ts --logLevel warn --outDir "$built/$web" "$web"
-  diff -r "$built/$web" "${web%/web}/dist"
-done
-'''
-
 [tasks."check:manifests"]
+depends = ["build"]
 run = '''
 kubectl kustomize clusters/syd > /dev/null
 kubectl kustomize templates/static > /dev/null
@@ -53,4 +42,5 @@ run = "oxlint --deny-warnings apps/*/web templates/*/web ui vite.config.ts"
 depends = ["fmt:mise", "fmt:oxfmt"]
 
 [tasks.test]
+depends = ["build"]
 run = "node --test"
