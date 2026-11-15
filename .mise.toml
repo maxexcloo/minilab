@@ -41,7 +41,3 @@ run = "oxlint --deny-warnings"
 [tasks.test]
 depends = ["build"]
 run = "node --test"
-
-# Setup
-[tasks.setup]
-run = "npm ci"
