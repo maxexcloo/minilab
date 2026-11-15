@@ -36,11 +36,12 @@ kubectl kustomize templates/static > /dev/null
 '''
 
 [tasks."check:oxlint"]
-run = "oxlint --deny-warnings apps/*/web templates/*/web ui vite.config.ts"
-
-[tasks.fmt]
-depends = ["fmt:mise", "fmt:oxfmt"]
+run = "oxlint --deny-warnings"
 
 [tasks.test]
 depends = ["build"]
 run = "node --test"
+
+# Setup
+[tasks.setup]
+run = "npm ci"

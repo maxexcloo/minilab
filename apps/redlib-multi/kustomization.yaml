@@ -4,10 +4,10 @@ namespace: redlib-multi
 resources:
   - deploy.yaml
 configMapGenerator:
-  - name: redlib-multi-script
+  - name: script
     files:
       - dist/app.js
-  - name: redlib-multi-source
+  - name: source
     files:
       - dist/app.css
       - dist/index.html

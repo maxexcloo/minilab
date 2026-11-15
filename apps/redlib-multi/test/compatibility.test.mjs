@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
 import { createHash } from "node:crypto";
-import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { mkdtempDisposableSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { createServer } from "node:net";
 import { setTimeout } from "node:timers/promises";
@@ -26,35 +26,31 @@ test("requires a configured Redlib endpoint before opening storage", () => {
 });
 
 test("fails startup when any setting is missing or empty", () => {
-  const directory = mkdtempSync(join(tmpdir(), "redlib-multi-settings-"));
+  using directory = mkdtempDisposableSync(join(tmpdir(), "redlib-multi-settings-"));
   const settings = {
-    DATA_DIRECTORY: join(directory, "data"),
+    DATA_DIRECTORY: join(directory.path, "data"),
     HOST: "127.0.0.1",
     PORT: "0",
     REDLIB_CHECK_URL: "http://redlib.example:8080",
     REDLIB_URL: "https://feed.example",
   };
-  try {
-    for (const name of Object.keys(settings))
-      for (const value of [undefined, ""]) {
-        const env = { ...process.env, ...settings, [name]: value };
-        if (value === undefined) delete env[name];
-        const result = spawnSync(
-          process.execPath,
-          [fileURLToPath(new URL("../server.mjs", import.meta.url))],
-          { encoding: "utf8", env, timeout: 10000 },
-        );
-        assert.notEqual(result.status, 0, name);
-        assert.match(result.stderr, new RegExp(`${name} is required`));
-      }
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
+  for (const name of Object.keys(settings))
+    for (const value of [undefined, ""]) {
+      const env = { ...process.env, ...settings, [name]: value };
+      if (value === undefined) delete env[name];
+      const result = spawnSync(
+        process.execPath,
+        [fileURLToPath(new URL("../server.mjs", import.meta.url))],
+        { encoding: "utf8", env, timeout: 10000 },
+      );
+      assert.notEqual(result.status, 0, name);
+      assert.match(result.stderr, new RegExp(`${name} is required`));
+    }
 });
 
 test("opens an original database and merges its mixed-case identity into the lowercase list", async () => {
-  const directory = mkdtempSync(join(tmpdir(), "redlib-compatibility-"));
-  const database = new DatabaseSync(join(directory, "lists.sqlite"));
+  using directory = mkdtempDisposableSync(join(tmpdir(), "redlib-compatibility-"));
+  const database = new DatabaseSync(join(directory.path, "lists.sqlite"));
   database.exec(
     "CREATE TABLE lists (id TEXT PRIMARY KEY, subreddits TEXT NOT NULL, revision INTEGER NOT NULL)",
   );
@@ -63,64 +59,59 @@ test("opens an original database and merges its mixed-case identity into the low
     .prepare("INSERT INTO lists VALUES (?, ?, ?)")
     .run(createHash("sha256").update(id).digest("hex"), JSON.stringify(["australia", "sydney"]), 7);
   database.close();
-  const server = createApp({
-    dataDirectory: directory,
+  await using server = createApp({
+    dataDirectory: directory.path,
     redlibUrl: "https://feed.example",
     checkUrl: "http://redlib.example:8080",
   });
-  try {
-    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const base = `http://127.0.0.1:${server.address().port}`;
-    const first = await (await fetch(`${base}/api/lists/${id}`)).json();
-    assert.deepEqual(first, {
-      subreddits: ["australia", "sydney"],
-      revision: 8,
-    });
-    const page = await fetch(`${base}/${id}`);
-    assert.equal(page.status, 200);
-    assert.ok((await page.text()).includes('name="redlib-url" content="https://feed.example"'));
-    assert.equal(
-      multiredditUrl(first.subreddits, "https://feed.example"),
-      "https://feed.example/r/australia+sydney",
-    );
-    assert.deepEqual(await (await fetch(`${base}/api/lists/fixture-existing_list`)).json(), {
-      subreddits: ["australia", "sydney"],
-      revision: 8,
-    });
-    const update = await fetch(`${base}/api/lists/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subreddits: ["melbourne"], revision: 8 }),
-    });
-    assert.equal(update.status, 200);
-    assert.deepEqual(await update.json(), {
-      subreddits: ["melbourne"],
-      revision: 9,
-    });
-    const home = await (await fetch(base)).text();
-    assert.match(home, /<title>Redlib Multi<\/title>/);
-    assert.match(home, /src="\/app\.js"/);
-    assert.equal((await fetch(`${base}/server.mjs`)).status, 404);
-    assert.equal((await fetch(`${base}/lists.sqlite`)).status, 404);
-    assert.equal((await fetch(`${base}/invalid/list`)).status, 404);
-  } finally {
-    await new Promise((resolve) => server.close(resolve));
-    rmSync(directory, { force: true, recursive: true });
-  }
+  await once(server.listen(0, "127.0.0.1"), "listening");
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const first = await (await fetch(`${base}/api/lists/${id}`)).json();
+  assert.deepEqual(first, {
+    subreddits: ["australia", "sydney"],
+    revision: 8,
+  });
+  const page = await fetch(`${base}/${id}`);
+  assert.equal(page.status, 200);
+  assert.ok((await page.text()).includes('name="redlib-url" content="https://feed.example"'));
+  assert.equal(
+    multiredditUrl(first.subreddits, "https://feed.example"),
+    "https://feed.example/r/australia+sydney",
+  );
+  assert.deepEqual(await (await fetch(`${base}/api/lists/fixture-existing_list`)).json(), {
+    subreddits: ["australia", "sydney"],
+    revision: 8,
+  });
+  const update = await fetch(`${base}/api/lists/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ subreddits: ["melbourne"], revision: 8 }),
+  });
+  assert.equal(update.status, 200);
+  assert.deepEqual(await update.json(), {
+    subreddits: ["melbourne"],
+    revision: 9,
+  });
+  const home = await (await fetch(base)).text();
+  assert.match(home, /<title>Redlib Multi<\/title>/);
+  assert.match(home, /src="\/app\.js"/);
+  assert.equal((await fetch(`${base}/server.mjs`)).status, 404);
+  assert.equal((await fetch(`${base}/lists.sqlite`)).status, 404);
+  assert.equal((await fetch(`${base}/invalid/list`)).status, 404);
 });
 
 test("starts normally through a Kubernetes-style source symlink", async () => {
-  const directory = mkdtempSync(join(tmpdir(), "redlib-multi-source-"));
-  const entry = join(directory, "server.mjs");
+  using directory = mkdtempDisposableSync(join(tmpdir(), "redlib-multi-source-"));
+  const entry = join(directory.path, "server.mjs");
   symlinkSync(fileURLToPath(new URL("../server.mjs", import.meta.url)), entry);
   const reservation = createServer();
-  await new Promise((resolve) => reservation.listen(0, "127.0.0.1", resolve));
+  await once(reservation.listen(0, "127.0.0.1"), "listening");
   const port = reservation.address().port;
   await new Promise((resolve) => reservation.close(resolve));
   const child = spawn(process.execPath, [entry], {
     env: {
       ...process.env,
-      DATA_DIRECTORY: join(directory, "data"),
+      DATA_DIRECTORY: join(directory.path, "data"),
       HOST: "127.0.0.1",
       PORT: String(port),
       REDLIB_CHECK_URL: "http://redlib.example:8080",
@@ -146,6 +137,5 @@ test("starts normally through a Kubernetes-style source symlink", async () => {
       child.kill();
       await once(child, "exit");
     }
-    rmSync(directory, { recursive: true, force: true });
   }
 });

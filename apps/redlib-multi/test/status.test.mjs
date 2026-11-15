@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { once } from "node:events";
+import { mkdtempDisposableSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -44,10 +45,10 @@ test("recognises explicit Redlib statuses without inferring bans from generic er
 });
 
 test("checks a fixed Redlib origin, caches results and preserves lists", async () => {
-  const directory = mkdtempSync(join(tmpdir(), "redlib-status-"));
+  using directory = mkdtempDisposableSync(join(tmpdir(), "redlib-status-"));
   let calls = 0;
-  const server = createApp({
-    dataDirectory: directory,
+  await using server = createApp({
+    dataDirectory: directory.path,
     redlibUrl: "https://feed.example",
     checkUrl: "http://redlib.example:8080",
     fetchStatus: async (url, options) => {
@@ -60,7 +61,7 @@ test("checks a fixed Redlib origin, caches results and preserves lists", async (
       return new Response(`<div id="error"><h1>r/${name} has been banned from Reddit</h1></div>`);
     },
   });
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  await once(server.listen(0, "127.0.0.1"), "listening");
   const base = `http://127.0.0.1:${server.address().port}`;
   const check = (subreddit, headers = {}) =>
     fetch(`${base}/api/check`, {
@@ -68,34 +69,29 @@ test("checks a fixed Redlib origin, caches results and preserves lists", async (
       headers: { "Content-Type": "application/json", ...headers },
       body: JSON.stringify({ subreddit }),
     });
-  try {
-    const saved = { revision: 0, subreddits: ["example"] };
-    await fetch(`${base}/api/lists/test`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(saved),
-    });
-    assert.deepEqual(await (await check("example")).json(), {
-      status: "banned",
-    });
-    assert.deepEqual(await (await check("example")).json(), {
-      status: "banned",
-    });
-    assert.equal(calls, 1);
-    assert.equal((await check("example", { "Sec-Fetch-Site": "cross-site" })).status, 403);
-    assert.equal((await check("../example")).status, 400);
-    assert.deepEqual(await (await check("offline")).json(), {
-      status: "unknown",
-    });
-    assert.deepEqual(await (await check("limited")).json(), {
-      status: "unknown",
-    });
-    assert.deepEqual(await (await fetch(`${base}/api/lists/test`)).json(), {
-      revision: 1,
-      subreddits: ["example"],
-    });
-  } finally {
-    await new Promise((resolve) => server.close(resolve));
-    rmSync(directory, { recursive: true, force: true });
-  }
+  const saved = { revision: 0, subreddits: ["example"] };
+  await fetch(`${base}/api/lists/test`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(saved),
+  });
+  assert.deepEqual(await (await check("example")).json(), {
+    status: "banned",
+  });
+  assert.deepEqual(await (await check("example")).json(), {
+    status: "banned",
+  });
+  assert.equal(calls, 1);
+  assert.equal((await check("example", { "Sec-Fetch-Site": "cross-site" })).status, 403);
+  assert.equal((await check("../example")).status, 400);
+  assert.deepEqual(await (await check("offline")).json(), {
+    status: "unknown",
+  });
+  assert.deepEqual(await (await check("limited")).json(), {
+    status: "unknown",
+  });
+  assert.deepEqual(await (await fetch(`${base}/api/lists/test`)).json(), {
+    revision: 1,
+    subreddits: ["example"],
+  });
 });

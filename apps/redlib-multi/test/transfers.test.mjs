@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { once } from "node:events";
+import { mkdtempDisposableSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -7,16 +8,16 @@ import { test } from "node:test";
 import { createApp } from "../server.mjs";
 
 test("copies and moves selected entries atomically without overwriting either list", async () => {
-  const directory = mkdtempSync(join(tmpdir(), "redlib-transfers-"));
+  using directory = mkdtempDisposableSync(join(tmpdir(), "redlib-transfers-"));
   let server;
   let base;
   async function start() {
     server = createApp({
-      dataDirectory: directory,
+      dataDirectory: directory.path,
       redlibUrl: "https://feed.example",
       checkUrl: "http://redlib.example:8080",
     });
-    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    await once(server.listen(0, "127.0.0.1"), "listening");
     base = `http://127.0.0.1:${server.address().port}/api/lists`;
   }
   const stop = () => new Promise((resolve) => server.close(resolve));
@@ -83,7 +84,7 @@ test("copies and moves selected entries atomically without overwriting either li
     assert.equal((await get("target")).revision, 2);
 
     // A failure after the destination write must roll back both sides of a move.
-    const database = new DatabaseSync(join(directory, "lists.sqlite"));
+    const database = new DatabaseSync(join(directory.path, "lists.sqlite"));
     database.exec(
       "CREATE TRIGGER reject_source_update BEFORE DELETE ON lists WHEN OLD.subreddits = '[\"melbourne\"]' BEGIN SELECT RAISE(ABORT, 'test failure'); END",
     );
@@ -111,18 +112,17 @@ test("copies and moves selected entries atomically without overwriting either li
     });
   } finally {
     await stop();
-    rmSync(directory, { force: true, recursive: true });
   }
 });
 
 test("deletes empty lists while preserving stale-edit protection after recreation", async () => {
-  const directory = mkdtempSync(join(tmpdir(), "redlib-empty-"));
-  const server = createApp({
-    dataDirectory: directory,
+  using directory = mkdtempDisposableSync(join(tmpdir(), "redlib-empty-"));
+  await using server = createApp({
+    dataDirectory: directory.path,
     redlibUrl: "https://feed.example",
     checkUrl: "http://redlib.example:8080",
   });
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  await once(server.listen(0, "127.0.0.1"), "listening");
   const url = `http://127.0.0.1:${server.address().port}/api/lists/example`;
   const put = (revision, subreddits) =>
     fetch(url, {
@@ -130,25 +130,19 @@ test("deletes empty lists while preserving stale-edit protection after recreatio
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ revision, subreddits }),
     });
-  const database = new DatabaseSync(join(directory, "lists.sqlite"));
-  try {
-    assert.equal((await put(0, ["sydney"])).status, 200);
-    assert.equal((await put(1, [])).status, 200);
-    assert.equal(database.prepare("SELECT COUNT(*) AS count FROM lists").get().count, 0);
-    assert.deepEqual(await (await fetch(url)).json(), {
-      revision: 2,
-      subreddits: [],
-    });
-    assert.equal((await put(0, ["perth"])).status, 409);
-    assert.equal((await put(2, ["melbourne"])).status, 200);
-    assert.equal((await put(1, ["sydney"])).status, 409);
-    assert.deepEqual(await (await fetch(url)).json(), {
-      revision: 3,
-      subreddits: ["melbourne"],
-    });
-  } finally {
-    database.close();
-    await new Promise((resolve) => server.close(resolve));
-    rmSync(directory, { force: true, recursive: true });
-  }
+  using database = new DatabaseSync(join(directory.path, "lists.sqlite"));
+  assert.equal((await put(0, ["sydney"])).status, 200);
+  assert.equal((await put(1, [])).status, 200);
+  assert.equal(database.prepare("SELECT COUNT(*) AS count FROM lists").get().count, 0);
+  assert.deepEqual(await (await fetch(url)).json(), {
+    revision: 2,
+    subreddits: [],
+  });
+  assert.equal((await put(0, ["perth"])).status, 409);
+  assert.equal((await put(2, ["melbourne"])).status, 200);
+  assert.equal((await put(1, ["sydney"])).status, 409);
+  assert.deepEqual(await (await fetch(url)).json(), {
+    revision: 3,
+    subreddits: ["melbourne"],
+  });
 });

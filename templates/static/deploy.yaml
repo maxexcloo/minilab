@@ -16,16 +16,12 @@ spec:
               repository: nginx
               tag: 1.31.8-alpine3.24
             probes:
-              liveness:
+              liveness: &probe
                 enabled: true
                 path: /health
                 port: 8080
                 type: HTTP
-              readiness:
-                enabled: true
-                path: /health
-                port: 8080
-                type: HTTP
+              readiness: *probe
             resources:
               limits:
                 memory: 64Mi
@@ -48,14 +44,14 @@ spec:
           type: RuntimeDefault
     persistence:
       script:
-        name: mini-tool-script
+        name: script
         type: configMap
         globalMounts:
           - path: /www/app.js
             readOnly: true
             subPath: app.js
       source:
-        name: mini-tool-source
+        name: source
         type: configMap
         globalMounts:
           - path: /etc/nginx/nginx.conf

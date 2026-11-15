@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { once } from "node:events";
+import { mkdtempDisposableSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -22,22 +23,18 @@ test("normalises names, links and multi links without retaining duplicates", () 
 });
 
 test("saves isolated lists, rejects stale edits and survives restarts", async () => {
-  const directory = mkdtempSync(join(tmpdir(), "redlib-multi-"));
+  using directory = mkdtempDisposableSync(join(tmpdir(), "redlib-multi-"));
   let server;
   async function start() {
     server = createApp({
-      dataDirectory: directory,
+      dataDirectory: directory.path,
       redlibUrl: "https://feed.example",
       checkUrl: "http://redlib.example:8080",
     });
-    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    await once(server.listen(0, "127.0.0.1"), "listening");
     return `http://127.0.0.1:${server.address().port}`;
   }
-  async function stop() {
-    await new Promise((resolve, reject) =>
-      server.close((error) => (error ? reject(error) : resolve())),
-    );
-  }
+  const stop = () => server[Symbol.asyncDispose]();
   let base = await start();
   const put = (id, body, headers = {}) =>
     fetch(`${base}/api/lists/${id}`, {
@@ -100,6 +97,5 @@ test("saves isolated lists, rejects stale edits and survives restarts", async ()
     });
   } finally {
     await stop();
-    rmSync(directory, { force: true, recursive: true });
   }
 });
