@@ -12,16 +12,14 @@ and `REDLIB_CHECK_URL` to the origin the server uses for status checks, then run
 `node apps/redlib-multi/server.mjs` and open `http://<HOST>:<PORT>`.
 
 With the [shared Mise configuration](https://github.com/maxexcloo/dotfiles#shared-tools--tasks)
-installed and `npm ci` run, use `mise run check` to check the project locally.
+installed and `mise run setup` run, use `mise run check` to check the project locally.
 
 ## Add An App
 
 For a browser-only tool, copy `templates/static` into `apps/<name>`. Rename its
-Namespace together with the kustomization's `namespace`, and the ConfigMap
-generators' names together with `persistence.script.name` and
-`persistence.source.name`. Edit the page in `web/` and the native deployment
-resources, run `mise run build`, then select the app in
-`clusters/syd/kustomization.yaml`. Only add a backend if the app needs one.
+Namespace together with the kustomization's `namespace`. Edit the page in `web/`
+and the native deployment resources, run `mise run build`, then select the app
+in `clusters/syd/kustomization.yaml`. Only add a backend if the app needs one.
 
 | Access            | Gateway                                     | DNS                                                  |
 | ----------------- | ------------------------------------------- | ---------------------------------------------------- |
@@ -40,12 +38,11 @@ names.
 Build every app's `web/` source into its `dist/` from the repository root:
 
 ```sh
-npm ci
+mise run setup
 mise run build
 ```
 
-Git ignores `dist/`; CI builds `main` and publishes it with the bundles as the
-OCI artifact Flux deploys. Before merging, run `mise run check` and check the
+Git ignores `dist/`. Before merging, run `mise run check` and check the
 page in a browser for Content Security Policy errors.
 
 ## Licence

@@ -42,7 +42,7 @@ export function Suggestions({
     const names = key.split("+");
     const controller = new AbortController();
     void (async () => {
-      const candidates = relatedSubreddits(redsim.labels, redsim.links, names, Infinity);
+      const candidates = relatedSubreddits(redsim.labels, redsim.links, names);
       const available: string[] = [];
       let partial = false;
       for (let index = 0; index < candidates.length && available.length < 20; index += 2) {
@@ -61,11 +61,11 @@ export function Suggestions({
         // Pause on an upstream outage instead of probing the whole graph repeatedly.
         if (results.every((status) => status === "unknown")) break;
       }
-      setResult({ key: `${attempt}:${key}`, names: available.slice(0, 20), partial });
+      setResult({ key: run, names: available.slice(0, 20), partial });
       onChecked();
     })();
     return () => controller.abort();
-  }, [redsim, key, attempt, onChecked]);
+  }, [redsim, key, run, onChecked]);
 
   // Earlier suggestions stay listed, minus any just added, while replacements are checked.
   const suggested = (result?.names ?? []).filter((name) => !subreddits.includes(name));

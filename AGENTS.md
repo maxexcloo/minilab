@@ -5,9 +5,6 @@
   Kubernetes resources beside it: `deploy.yaml` holds the resources and
   `kustomization.yaml` mounts the assets. Apps share the root npm package,
   `vite.config.ts` and `ui/`; add no per-app package, Docker build or Mise task.
-  Prefer standard upstream runtimes and minimal deployment config; avoid
-  generators, task wrappers and alternate packaging. Substantial services, such
-  as Actual Up, belong in their own repositories.
 - Name the Namespace after the retained deployment name, set the same name as
   the kustomization's `namespace` and include `components/app`. Write `app` as
   the placeholder HelmRelease and NetworkPolicy name; the component derives
@@ -20,10 +17,6 @@
   `node.excloo.dev/network: external` nodes. A `local-path` PV is bound to the
   node that created it, so keep apps with storage on that external node and back
   up before changing placement.
-- Choose a backend and datastore for the app's behaviour; existing Node.js/SQLite
-  apps are examples, not a required stack. A backend such as PocketBase can
-  replace custom auth, data APIs and file handling when that reduces the app's
-  code and operational burden. Keep reusable recipes in the build skill.
 - Build every UI from Mantine components with the shared MantineHub shadcn
   theme, through `ui/mount.tsx` and `ui/Shell.tsx`. Add no CSS, raw HTML
   elements, `className` or `style` (oxlint enforces this), and use palette
@@ -50,9 +43,8 @@
   intact.
 - Kubelab owns shared substitutions in `apps/overlays/syd/minilab.yaml` and
   `apps/overlays/syd/kustomization.yaml`; backup credentials and the bucket come
-  from `apps/base/minilab`. Add shared variables there. Apps have no setting
-  defaults or fallbacks: a missing or empty variable, which is how Flux leaves
-  a missing substitution, must stop startup with its name. Write ports and
+  from `apps/base/minilab`. Add shared variables there. Treat an empty setting
+  as missing, because Flux leaves a missing substitution empty. Write ports and
   paths directly; do not derive them with replacements.
 - Preserve deployed namespaces, release names, PVCs and old URLs during source
   cleanups. SQLite apps use one replica with `Recreate` and keep live data off
@@ -68,6 +60,6 @@
   Multi's editing URLs out of them; secret-link apps rely on that.
 - CI builds `main` and publishes the repository with its bundles as the
   `ghcr.io/maxexcloo/minilab:main` OCI artifact, which Flux deploys. Source
-  changes must update hashed ConfigMap references or an immutable image. Run
-  data tests with `mise run test`, which builds the bundles they serve, and
-  render affected Kustomizations with `kubectl kustomize`.
+  changes must update hashed ConfigMap references or an immutable image. Verify
+  with `mise run check`, which builds the bundles, runs the data tests and
+  renders the Kustomizations.

@@ -4,10 +4,10 @@ namespace: mini-tool
 resources:
   - deploy.yaml
 configMapGenerator:
-  - name: mini-tool-script
+  - name: script
     files:
       - dist/app.js
-  - name: mini-tool-source
+  - name: source
     files:
       - dist/app.css
       - dist/index.html

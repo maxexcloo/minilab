@@ -24,8 +24,8 @@ export function multiredditUrl(subreddits, redlibUrl) {
 }
 
 // RedSim packs a negative source marker, then destination IDs and ranks.
-export function relatedSubreddits(labels, links, subreddits, limit = 20) {
-  const existing = new Set(subreddits.map((name) => name.trim().toLowerCase()));
+export function relatedSubreddits(labels, links, subreddits) {
+  const existing = new Set(subreddits);
   const sources = new Set();
   labels.forEach((label, index) => {
     if (existing.has(label.toLowerCase())) sources.add(index);
@@ -46,8 +46,5 @@ export function relatedSubreddits(labels, links, subreddits, limit = 20) {
       if (sources.has(destination)) add(source, rank);
     }
   }
-  return [...scores]
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .slice(0, limit)
-    .map(([name]) => name);
+  return [...scores].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name]) => name);
 }

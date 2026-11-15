@@ -23,16 +23,12 @@ spec:
               repository: node
               tag: 26.13.1-alpine3.24
             probes:
-              liveness:
+              liveness: &probe
                 enabled: true
                 path: /health
                 port: 3000
                 type: HTTP
-              readiness:
-                enabled: true
-                path: /health
-                port: 3000
-                type: HTTP
+              readiness: *probe
             resources:
               limits:
                 memory: 128Mi
@@ -123,14 +119,8 @@ spec:
           redlib-multi:
             app:
               - path: /data
-      restic:
-        type: emptyDir
-        advancedMounts:
-          backup:
-            restic:
-              - path: /tmp
       script:
-        name: redlib-multi-script
+        name: script
         type: configMap
         advancedMounts:
           redlib-multi:
@@ -139,7 +129,7 @@ spec:
                 readOnly: true
                 subPath: app.js
       source:
-        name: redlib-multi-source
+        name: source
         type: configMap
         advancedMounts:
           redlib-multi:
@@ -159,6 +149,15 @@ spec:
               - path: /app/subreddits.mjs
                 readOnly: true
                 subPath: subreddits.mjs
+      temporary:
+        type: emptyDir
+        advancedMounts:
+          backup:
+            restic:
+              - path: /tmp
+          redlib-multi:
+            app:
+              - path: /tmp
     route:
       private:
         annotations:

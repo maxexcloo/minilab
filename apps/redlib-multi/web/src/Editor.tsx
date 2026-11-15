@@ -53,11 +53,6 @@ const statusBadges: Record<Status, [label: string, colour: string]> = {
   unknown: ["Unknown", "gray"],
 };
 
-async function fetchList(id: string) {
-  await normaliseKnownLists();
-  return listRequest(id, "GET");
-}
-
 async function copy(text: string) {
   try {
     await navigator.clipboard.writeText(text);
@@ -69,7 +64,6 @@ async function copy(text: string) {
 
 export function Editor({ id }: { id: string }) {
   const [list, setList] = useState<List>();
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<Action>();
   const [notice, setNotice] = useState<{ text: string; colour: string; retry?: boolean }>();
   const [saveState, setSaveState] = useState("Loading…");
@@ -86,6 +80,7 @@ export function Editor({ id }: { id: string }) {
   // Where focus and scroll should land once a save that removes or adds rows has rendered.
   const restore = useRef<{ remove?: number; suggestion?: number; top?: number }>(undefined);
 
+  const loading = !list && !notice;
   const subreddits = list?.subreddits ?? [];
   const selected = subreddits.filter((name) => selection.has(name));
   const visible = subreddits.filter((name) => name.includes(filter.trim()));
@@ -97,18 +92,18 @@ export function Editor({ id }: { id: string }) {
 
   const load = useCallback(
     () =>
-      fetchList(id).then(
-        (loaded) => {
-          setList(loaded);
-          rememberList(id, loaded.subreddits.length > 0);
-          setSaveState(loaded.revision ? "Saved." : "Add a subreddit to save this list.");
-          setLoading(false);
-        },
-        (error: Error) => {
-          setNotice({ text: error.message, colour: "red", retry: true });
-          setLoading(false);
-        },
-      ),
+      normaliseKnownLists()
+        .then(() => listRequest(id, "GET"))
+        .then(
+          (loaded) => {
+            setList(loaded);
+            rememberList(id, loaded.subreddits.length > 0);
+            setSaveState(loaded.revision ? "Saved." : "Add a subreddit to save this list.");
+          },
+          (error: Error) => {
+            setNotice({ text: error.message, colour: "red", retry: true });
+          },
+        ),
     [id],
   );
   useEffect(() => {
@@ -166,8 +161,7 @@ export function Editor({ id }: { id: string }) {
 
   async function transfer(action: "copy" | "move") {
     if (busy || !list || !selected.length) return;
-    const original = destination.trim();
-    const target = original.toLowerCase();
+    const target = destination.toLowerCase();
     if (!listName.test(target) || reservedList(target) || target === id) {
       setNotice({ text: "Choose a different valid destination list name.", colour: "red" });
       return;
@@ -179,7 +173,7 @@ export function Editor({ id }: { id: string }) {
       const result = await listRequest(
         id,
         "POST",
-        { action, destination: original, revision: list.revision, subreddits: selected },
+        { action, destination, revision: list.revision, subreddits: selected },
         "/transfer",
       );
       setList(result);
@@ -262,7 +256,6 @@ export function Editor({ id }: { id: string }) {
                 variant="default"
                 onClick={() => {
                   setNotice(undefined);
-                  setLoading(true);
                   void load();
                 }}
               >
@@ -278,7 +271,7 @@ export function Editor({ id }: { id: string }) {
           <Text>Loading your list…</Text>
         </Group>
       )}
-      {list && !loading && (
+      {list && (
         <>
           <Group justify="space-between" gap="sm">
             <Group gap="sm">

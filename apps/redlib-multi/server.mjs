@@ -13,10 +13,10 @@ class RequestError extends Error {
   }
 }
 
-async function readJson(request, limit, tooLarge, action = "writes") {
+async function readJson(request, limit, tooLarge) {
   const site = request.headers["sec-fetch-site"];
   if (site && !["none", "same-origin"].includes(site))
-    throw new RequestError(403, `Cross-site ${action} are not allowed.`);
+    throw new RequestError(403, "Cross-site requests are not allowed.");
   const type = request.headers["content-type"]?.split(";")[0].trim();
   if (type?.toLowerCase() !== "application/json")
     throw new RequestError(415, "Use application/json.");
@@ -108,7 +108,7 @@ export function createApp({
     }
   }
   const listKey = (name) => createHash("sha256").update(name).digest("hex");
-  function normaliseLists(names) {
+  function migrateLegacyLists(names) {
     const legacy = names.filter(
       (name) => name !== name.toLowerCase() && readList(listKey(name)).revision,
     );
@@ -129,24 +129,20 @@ export function createApp({
           }
         }
       });
-    return [...new Set(names.map((name) => name.toLowerCase()))]
-      .filter((name) => readList(listKey(name)).subreddits.length)
-      .sort();
   }
-  const assets = new Map(
+  const readAsset = (file, type) => ({
+    content: readFileSync(new URL(file, import.meta.url)),
+    type,
+  });
+  const assets = new Map([
+    ["/", readAsset("dist/index.html", "text/html; charset=utf-8")],
+    ["/app.css", readAsset("dist/app.css", "text/css; charset=utf-8")],
+    ["/app.js", readAsset("dist/app.js", "text/javascript; charset=utf-8")],
     [
-      ["/", ["dist/index.html", "text/html; charset=utf-8"]],
-      ["/app.css", ["dist/app.css", "text/css; charset=utf-8"]],
-      ["/app.js", ["dist/app.js", "text/javascript; charset=utf-8"]],
-      ["/third-party-licences.txt", ["dist/third-party-licences.txt", "text/plain; charset=utf-8"]],
-    ].map(([path, [file, type]]) => [
-      path,
-      {
-        content: readFileSync(new URL(file, import.meta.url)),
-        type,
-      },
-    ]),
-  );
+      "/third-party-licences.txt",
+      readAsset("dist/third-party-licences.txt", "text/plain; charset=utf-8"),
+    ],
+  ]);
   const page = assets.get("/");
   const html = page.content.toString().replace("%REDLIB_URL%", origin);
   const server = createServer(async (request, response) => {
@@ -178,11 +174,15 @@ export function createApp({
           names.some((name) => typeof name !== "string" || !listName.test(name))
         )
           return json(400, { error: "Provide up to 1,000 valid list names." });
-        return json(200, { names: normaliseLists(names) });
+        migrateLegacyLists(names);
+        return json(200, {
+          names: [...new Set(names.map((name) => name.toLowerCase()))]
+            .filter((name) => readList(listKey(name)).subreddits.length)
+            .sort(),
+        });
       }
       if (path === "/api/check" && request.method === "POST") {
-        const name = (await readJson(request, 1024, "Check one subreddit at a time.", "checks"))
-          ?.subreddit;
+        const name = (await readJson(request, 1024, "Check one subreddit at a time."))?.subreddit;
         if (typeof name !== "string" || !subredditName.test(name))
           return json(400, { error: "Provide a valid subreddit name." });
         const cached = statusCache.get(name);
@@ -206,14 +206,14 @@ export function createApp({
         });
         return json(200, { status });
       }
-      const match = /^\/api\/lists\/([a-zA-Z0-9_-]{1,128})(\/transfer)?$/.exec(path);
-      if (match) {
+      const match = /^\/api\/lists\/([^/]+)(\/transfer)?$/.exec(path);
+      if (match && listName.test(match[1])) {
         const name = match[1].toLowerCase();
         if (reservedList(name))
           return json(400, {
             error: "This name is reserved. Choose another list name.",
           });
-        normaliseLists([match[1]]);
+        migrateLegacyLists([match[1]]);
         const key = listKey(name);
         const stored = readList(key);
         const transfer = Boolean(match[2]);
@@ -254,7 +254,7 @@ export function createApp({
             });
           if (!["copy", "move"].includes(input.action) || !names.length)
             return json(400, { error: "Select subreddits to copy or move." });
-          normaliseLists([originalDestination]);
+          migrateLegacyLists([originalDestination]);
           return json(
             ...transaction(() => {
               const source = readList(key);
@@ -311,7 +311,7 @@ export function createApp({
         return json(405, { error: "Method not allowed." });
       const listPage = listName.test(path.slice(1));
       if (listPage && !assets.has(path)) {
-        normaliseLists([path.slice(1)]);
+        migrateLegacyLists([path.slice(1)]);
         if (path !== path.toLowerCase() && !reservedList(path.slice(1))) {
           response.writeHead(308, {
             Location: path.toLowerCase() + new URL(request.url, "http://localhost").search,
@@ -325,6 +325,7 @@ export function createApp({
       const content = asset === page ? html.replace("%STYLE_NONCE%", nonce) : asset.content;
       response.end(request.method === "HEAD" ? undefined : content);
     } catch (error) {
+      if (!(error instanceof RequestError)) console.error(error);
       json(error instanceof RequestError ? error.status : 500, {
         error: error instanceof RequestError ? error.message : "Unable to process this request.",
       });
