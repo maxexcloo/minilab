@@ -12,7 +12,7 @@ and `REDLIB_CHECK_URL` to the origin the server uses for status checks, then run
 `node apps/redlib-multi/server.mjs` and open `http://<HOST>:<PORT>`.
 
 With the [shared Mise configuration](https://github.com/maxexcloo/dotfiles#shared-tools--tasks)
-installed and `mise run setup` run, use `mise run check` to check the project locally.
+installed and `npm ci` run, use `mise run check` to check the project locally.
 
 ## Add An App
 
@@ -38,7 +38,7 @@ names.
 Build every app's `web/` source into its `dist/` from the repository root:
 
 ```sh
-mise run setup
+npm ci
 mise run build
 ```
 
