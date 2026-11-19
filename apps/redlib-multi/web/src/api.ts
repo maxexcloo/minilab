@@ -1,9 +1,8 @@
-import { listName } from "../../subreddits.mjs";
+import { listName, normaliseListBatchSize, redsimDataUrl } from "../../subreddits.mjs";
 
 export type Status = "available" | "banned" | "private" | "restricted" | "unknown";
 export type List = { revision: number; subreddits: string[] };
 
-export const redsimUrl = "https://anvaka.github.io/redsim/";
 // The server writes its configured Redlib origin into the page.
 export const redlibUrl =
   document.querySelector<HTMLMetaElement>('meta[name="redlib-url"]')!.content;
@@ -40,7 +39,6 @@ export async function listRequest(
 }
 
 export const statuses = new Map<string, Status>();
-const pending = new Map<string, { request: Promise<Status>; signal?: AbortSignal }>();
 const queue: Array<() => Promise<void>> = [];
 let active = 0;
 
@@ -56,8 +54,6 @@ function drain() {
 }
 
 export function checkSubreddit(name: string, signal?: AbortSignal): Promise<Status> {
-  const existing = pending.get(name);
-  if (existing && !existing.signal?.aborted) return existing.request;
   const request = new Promise<Status>((resolve) => {
     queue.push(async () => {
       if (signal?.aborted) return resolve("unknown");
@@ -76,10 +72,7 @@ export function checkSubreddit(name: string, signal?: AbortSignal): Promise<Stat
       if (!signal?.aborted) statuses.set(name, status);
       resolve(status);
     });
-  }).finally(() => {
-    if (pending.get(name)?.request === request) pending.delete(name);
   });
-  pending.set(name, { request, signal });
   drain();
   return request;
 }
@@ -93,11 +86,11 @@ export async function loadRedsim() {
     signal: AbortSignal.timeout(20000),
   };
   const [labels, links] = await Promise.all([
-    fetch(new URL("data/labels.json", redsimUrl), options).then((response) => {
+    fetch(new URL("labels.json", redsimDataUrl), options).then((response) => {
       if (!response.ok) throw new Error("Suggestions unavailable.");
       return response.json() as Promise<string[]>;
     }),
-    fetch(new URL("data/links.bin", redsimUrl), options).then((response) => {
+    fetch(new URL("links.bin", redsimDataUrl), options).then((response) => {
       if (!response.ok) throw new Error("Suggestions unavailable.");
       return response.arrayBuffer();
     }),
@@ -143,11 +136,11 @@ export async function normaliseKnownLists() {
   if (!knownLists.length) return;
   try {
     const normalised: string[] = [];
-    for (let offset = 0; offset < knownLists.length; offset += 1000) {
+    for (let offset = 0; offset < knownLists.length; offset += normaliseListBatchSize) {
       const response = await fetch("/api/normalise-lists", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ names: knownLists.slice(offset, offset + 1000) }),
+        body: JSON.stringify({ names: knownLists.slice(offset, offset + normaliseListBatchSize) }),
       });
       if (!response.ok) throw new Error("Could not normalise saved lists.");
       normalised.push(...(await response.json()).names);

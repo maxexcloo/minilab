@@ -1,6 +1,6 @@
-import { Button, Card, Group, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Box, Button, Card, Group, Stack, Text, TextInput, Title } from "@mantine/core";
 import { useState, type FormEvent } from "react";
-import { listName, reservedList } from "../../subreddits.mjs";
+import { listName, maxListNameLength, reservedList } from "../../subreddits.mjs";
 import { normalisedChange } from "./input";
 
 export function Welcome() {
@@ -11,7 +11,7 @@ export function Welcome() {
   function open(event: FormEvent) {
     event.preventDefault();
     if (!listName.test(name))
-      return setInvalid("Use up to 128 letters, numbers, underscores or hyphens.");
+      return setInvalid(`Use up to ${maxListNameLength} letters, numbers, underscores or hyphens.`);
     if (reservedList(name)) return setInvalid("This name is reserved. Choose another list name.");
     location.assign(`/${name}`);
   }
@@ -27,13 +27,13 @@ export function Welcome() {
               together.
             </Text>
           </Stack>
-          <form onSubmit={open} noValidate>
+          <Box component="form" onSubmit={open} noValidate>
             <Group align="flex-end" gap="sm" wrap="nowrap">
               <TextInput
                 label="List Name"
                 autoComplete="off"
                 autoCapitalize="none"
-                maxLength={128}
+                maxLength={maxListNameLength}
                 required
                 flex={1}
                 value={name}
@@ -45,7 +45,7 @@ export function Welcome() {
               />
               <Button type="submit">Open List</Button>
             </Group>
-          </form>
+          </Box>
         </Stack>
       </Card>
     </Stack>
