@@ -3,6 +3,7 @@ import {
   Anchor,
   Autocomplete,
   Badge,
+  Box,
   Button,
   Card,
   Checkbox,
@@ -25,7 +26,14 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { listName, multiredditUrl, normaliseSubreddits, reservedList } from "../../subreddits.mjs";
+import {
+  listName,
+  maxListNameLength,
+  multiredditUrl,
+  normaliseSubreddits,
+  redsimUrl,
+  reservedList,
+} from "../../subreddits.mjs";
 import {
   checkSubreddit,
   knownLists,
@@ -34,7 +42,6 @@ import {
   needsCheck,
   normaliseKnownLists,
   redlibUrl,
-  redsimUrl,
   rememberList,
   statuses,
   type List,
@@ -147,6 +154,8 @@ export function Editor({ id }: { id: string }) {
     try {
       const result = await listRequest(id, "PUT", { revision: list.revision, subreddits: next });
       setList(result);
+      if (action === "remove")
+        setSelection((current) => new Set(result.subreddits.filter((name) => current.has(name))));
       rememberList(id, result.subreddits.length > 0);
       setSaveState("Saved.");
       return true;
@@ -307,7 +316,7 @@ export function Editor({ id }: { id: string }) {
           </Card>
           <Card>
             <Stack gap="lg">
-              <form onSubmit={add}>
+              <Box component="form" onSubmit={add}>
                 <Group align="flex-end" gap="sm" wrap="nowrap">
                   <TextInput
                     ref={addInput}
@@ -324,7 +333,7 @@ export function Editor({ id }: { id: string }) {
                     Add
                   </Button>
                 </Group>
-              </form>
+              </Box>
               <Divider />
               <Stack gap="sm">
                 <Group justify="space-between" gap="sm">
@@ -390,7 +399,7 @@ export function Editor({ id }: { id: string }) {
                         placeholder="Choose a saved list or enter a new one"
                         autoComplete="off"
                         autoCapitalize="none"
-                        maxLength={128}
+                        maxLength={maxListNameLength}
                         data={destinations}
                         disabled={Boolean(busy)}
                         value={destination}

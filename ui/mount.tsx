@@ -1,9 +1,7 @@
 import "@fontsource-variable/geist";
 import "@mantine/core/styles.css";
-import "@mantine/notifications/styles.css";
 import "./vendor/mantinehub/shadcn-styles.css";
 import { MantineProvider } from "@mantine/core";
-import { Notifications } from "@mantine/notifications";
 import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { cssVariablesResolver, theme } from "./theme";
@@ -21,7 +19,6 @@ export function mount(app: ReactNode) {
         defaultColorScheme="auto"
         getStyleNonce={() => nonce}
       >
-        <Notifications position="bottom-right" />
         {app}
       </MantineProvider>
     </StrictMode>,

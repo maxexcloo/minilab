@@ -43,6 +43,10 @@
                 "message": "use Fieldset"
               },
               {
+                "element": "form",
+                "message": "use Box with component=\"form\""
+              },
+              {
                 "element": "h1",
                 "message": "use Title"
               },

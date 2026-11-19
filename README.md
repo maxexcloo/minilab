@@ -5,8 +5,9 @@ Small self-hosted tools. Each app lives in `apps/<name>` and is published at
 
 ## Apps
 
-To run [Redlib Multi](apps/redlib-multi) locally with the Node.js version in
-`package.json`'s `engines`, set `DATA_DIRECTORY` (such as
+To run [Redlib Multi](apps/redlib-multi) locally, first
+[build the interfaces](#build-the-interfaces) with the Node.js version in
+`package.json`'s `engines`. Set `DATA_DIRECTORY` (such as
 `apps/redlib-multi/data`), `HOST`, `PORT`, `REDLIB_URL` to your Redlib origin
 and `REDLIB_CHECK_URL` to the origin the server uses for status checks, then run
 `node apps/redlib-multi/server.mjs` and open `http://<HOST>:<PORT>`.

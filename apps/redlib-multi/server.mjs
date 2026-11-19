@@ -4,7 +4,16 @@ import { createServer } from "node:http";
 import { resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
-import { listName, normaliseSubreddits, reservedList, subredditName } from "./subreddits.mjs";
+import {
+  listName,
+  normaliseListBatchSize,
+  normaliseSubreddits,
+  redsimDataUrl,
+  reservedList,
+  subredditName,
+} from "./subreddits.mjs";
+
+const subredditLimit = 1000;
 
 class RequestError extends Error {
   constructor(status, message) {
@@ -151,7 +160,7 @@ export function createApp({
     const nonce = randomBytes(16).toString("base64");
     response.setHeader(
       "Content-Security-Policy",
-      `default-src 'none'; connect-src 'self' https://anvaka.github.io/redsim/data/; font-src data:; img-src 'self' data:; script-src 'self'; style-src 'self' 'nonce-${nonce}'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`,
+      `default-src 'none'; connect-src 'self' ${redsimDataUrl}; font-src data:; img-src 'self' data:; script-src 'self'; style-src 'self' 'nonce-${nonce}'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`,
     );
     response.setHeader("Referrer-Policy", "no-referrer");
     response.setHeader("X-Content-Type-Options", "nosniff");
@@ -170,10 +179,12 @@ export function createApp({
         const names = (await readJson(request, 150000, "Too many list names."))?.names;
         if (
           !Array.isArray(names) ||
-          names.length > 1000 ||
+          names.length > normaliseListBatchSize ||
           names.some((name) => typeof name !== "string" || !listName.test(name))
         )
-          return json(400, { error: "Provide up to 1,000 valid list names." });
+          return json(400, {
+            error: `Provide up to ${normaliseListBatchSize.toLocaleString("en-AU")} valid list names.`,
+          });
         migrateLegacyLists(names);
         return json(200, {
           names: [...new Set(names.map((name) => name.toLowerCase()))]
@@ -225,7 +236,7 @@ export function createApp({
           Math.max(65536, stored.subreddits.length * 24 + 1024),
           "List is too large.",
         );
-        const limit = Math.max(1000, stored.subreddits.length);
+        const limit = Math.max(subredditLimit, stored.subreddits.length);
         if (
           !input ||
           !Number.isSafeInteger(input.revision) ||
@@ -235,7 +246,7 @@ export function createApp({
           input.subreddits.some((value) => typeof value !== "string")
         )
           return json(400, {
-            error: "Provide a revision and up to 1,000 subreddit names.",
+            error: `Provide a revision and up to ${limit.toLocaleString("en-AU")} subreddit names.`,
           });
         let names;
         try {
@@ -243,7 +254,8 @@ export function createApp({
         } catch (error) {
           return json(400, { error: error.message });
         }
-        if (names.length > limit) return json(400, { error: "Use up to 1,000 subreddits." });
+        if (names.length > limit)
+          return json(400, { error: `Use up to ${limit.toLocaleString("en-AU")} subreddits.` });
         if (transfer) {
           const originalDestination =
             typeof input.destination === "string" ? input.destination.trim() : "";
@@ -273,8 +285,13 @@ export function createApp({
               const destinationList = readList(destinationKey);
               const existing = destinationList.subreddits;
               const combined = [...new Set([...existing, ...names])].sort();
-              if (combined.length > 1000)
-                return [400, { error: "The destination would exceed 1,000 subreddits." }];
+              if (combined.length > subredditLimit)
+                return [
+                  400,
+                  {
+                    error: `The destination would exceed ${subredditLimit.toLocaleString("en-AU")} subreddits.`,
+                  },
+                ];
               if (combined.length !== existing.length)
                 writeList(destinationKey, combined, destinationList.revision);
               if (input.action === "move") {

@@ -1,7 +1,7 @@
 import { Anchor, Button, Card, Group, Stack, Text, Title } from "@mantine/core";
 import { useEffect, useState } from "react";
-import { relatedSubreddits } from "../../subreddits.mjs";
-import { checkSubreddit, loadRedsim, redlibUrl, redsimUrl, statuses, type Status } from "./api";
+import { redsimUrl, relatedSubreddits } from "../../subreddits.mjs";
+import { checkSubreddit, loadRedsim, redlibUrl, statuses, type Status } from "./api";
 
 type Redsim = Awaited<ReturnType<typeof loadRedsim>>;
 
