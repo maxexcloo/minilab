@@ -14,7 +14,7 @@ spec:
               - daemon off;
             image:
               repository: nginx
-              tag: 1.31.8-alpine3.24
+              tag: 1.31.9-alpine3.24
             probes:
               liveness: &probe
                 enabled: true
