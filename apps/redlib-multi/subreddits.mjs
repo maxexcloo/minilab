@@ -1,5 +1,6 @@
 export const maxListNameLength = 128;
 export const normaliseListBatchSize = 1000;
+export const unknownStatusCacheSeconds = 60;
 export const redsimUrl = "https://anvaka.github.io/redsim/";
 export const redsimDataUrl = new URL("data/", redsimUrl);
 

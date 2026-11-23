@@ -11,6 +11,7 @@ import {
   redsimDataUrl,
   reservedList,
   subredditName,
+  unknownStatusCacheSeconds,
 } from "./subreddits.mjs";
 
 const subredditLimit = 1000;
@@ -213,7 +214,7 @@ export function createApp({
         if (statusCache.size >= 1000) statusCache.delete(statusCache.keys().next().value);
         statusCache.set(name, {
           status,
-          expires: Date.now() + (status === "unknown" ? 60000 : 900000),
+          expires: Date.now() + (status === "unknown" ? unknownStatusCacheSeconds * 1000 : 900000),
         });
         return json(200, { status });
       }
