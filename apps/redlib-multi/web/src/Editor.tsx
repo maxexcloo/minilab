@@ -33,6 +33,7 @@ import {
   normaliseSubreddits,
   redsimUrl,
   reservedList,
+  unknownStatusCacheSeconds,
 } from "../../subreddits.mjs";
 import {
   checkSubreddit,
@@ -366,6 +367,12 @@ export function Editor({ id }: { id: string }) {
                 {checkState && (
                   <Text size="sm" c="dimmed" aria-live="polite">
                     {checkState}
+                  </Text>
+                )}
+                {subreddits.some((name) => statuses.get(name) === "unknown") && (
+                  <Text size="sm" c="dimmed">
+                    Wait {unknownStatusCacheSeconds} seconds before rechecking Unknown results so
+                    the cached results can expire.
                   </Text>
                 )}
                 <Group justify="space-between" gap="sm">
