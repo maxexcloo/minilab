@@ -1,6 +1,6 @@
 import { Anchor, Button, Card, Group, Stack, Text, Title } from "@mantine/core";
 import { useEffect, useState } from "react";
-import { redsimUrl, relatedSubreddits } from "../../subreddits.mjs";
+import { redsimUrl, relatedSubreddits, unknownStatusCacheSeconds } from "../../subreddits.mjs";
 import { checkSubreddit, loadRedsim, redlibUrl, statuses, type Status } from "./api";
 
 type Redsim = Awaited<ReturnType<typeof loadRedsim>>;
@@ -77,11 +77,13 @@ export function Suggestions({
     ? "Finding related subreddits…"
     : checking
       ? "Checking related subreddits…"
-      : failed || incomplete
-        ? "Some suggestions could not be checked. Try again."
-        : suggested.length
-          ? ""
-          : "No related subreddits found.";
+      : failed
+        ? "Could not load related subreddits. Try again."
+        : incomplete
+          ? `Some suggestions could not be checked. Wait ${unknownStatusCacheSeconds} seconds before retrying so the cached results can expire.`
+          : suggested.length
+            ? ""
+            : "No related subreddits found.";
   return (
     <Card>
       <Stack gap="sm">
